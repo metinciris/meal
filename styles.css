@@ -117,3 +117,21 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui
 .loading-quote{ font-weight: 500; margin-bottom: 12px; color:#e5e7eb }
 .loading-spin{ opacity:.9; animation: pulse 1s infinite ease-in-out }
 @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+
+/* TTS kontrolleri */
+.tts-controls{
+  display:flex; gap:8px; align-items:center;
+  margin: 6px 0 12px 0;
+}
+.tts-controls .btn{
+  background:#0b1220; border:1px solid #374151; color:var(--ink);
+  padding:6px 10px; border-radius:10px; cursor:pointer;
+}
+.tts-controls .btn:disabled{ opacity:.5; cursor:default }
+.tts-controls .opt{ color:var(--muted); font-size:13px; display:flex; gap:6px; align-items:center; margin-left:8px }
+
+/* Okunan ayeti vurgula */
+.ayah-card.reading{
+  outline: 2px solid #10b981;
+  box-shadow: 0 0 0 3px rgba(16,185,129,.15);
+}
