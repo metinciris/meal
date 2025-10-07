@@ -1,22 +1,9 @@
-/**************** app.js — canlı JSON API + sade & şık arayüz ****************/
-/*  Yapı:
-    - API_URL: Apps Script Web App (/exec) adresin
-    - Ana sayfa: Sûre listesi (tamamlananlar yeşil), tıklayınca sûre görünümü
-    - Sûre görünümü: Sadece meali olan ayetler, numara gizli rozet (hover/tıkla görünür)
-    - Arama: Sûre içinde meal + açıklama alanında filtreler
-    - İç link: [[3:4]] tıklanınca sûreyı açar, ilgili ayete kaydırır ve numarayı kısa süre gösterir
-    - Yükleniyor katmanı: İlk yüklemede overlay
-*/
-
-const API_URL = 'https://script.google.com/macros/s/AKfycbwxoqSvwWMYeZO2Oj4mNm8yZppFMrhPZl9K25NN89Q2zTGmuAU1ucoaitc0rM_FbzkU/exec'; // ← /exec ile biten Web App URL
-
-
 /**************** app.js — canlı JSON API + responsive arayüz ****************/
 
-// 1) BURAYI DOLDUR: Apps Script Web App /exec URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbwxoqSvwWMYeZO2Oj4mNm8yZppFMrhPZl9K25NN89Q2zTGmuAU1ucoaitc0rM_FbzkU/exec'; // ← /exec ile biten Web App URL
+/* Web App (/exec) URL — senin verdiğin adres */
+const API_URL = 'https://script.google.com/macros/s/AKfycbwxoqSvwWMYeZO2Oj4mNm8yZppFMrhPZl9K25NN89Q2zTGmuAU1ucoaitc0rM_FbzkU/exec';
 
-// 2) Sûre adları ve ayet sayıları
+/* Sûre adları ve ayet sayıları */
 const NAMES = [
   '', 'Fâtiha','Bakara','Âl-i İmrân','Nisâ','Mâide','En’âm','A’râf','Enfâl','Tevbe','Yûnus','Hûd',
   'Yûsuf','Ra’d','İbrâhîm','Hicr','Nahl','İsrâ','Kehf','Meryem','Tâhâ','Enbiyâ','Hac','Mü’minûn',
@@ -35,23 +22,21 @@ const AYAHS = [0,7,286,200,176,120,165,206,75,129,109,123,111,43,52,99,128,111,1
  60,49,62,55,78,96,29,22,24,13,14,11,11,18,12,12,30,52,52,44,28,28,20,56,40,31,50,40,46,42,29,19,
  36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,11,8,3,9,5,4,7,3,6,3,5,4,5,6];
 
-// 3) Besmele (Fâtiha hariç göster)
+/* Besmele (Fâtiha hariç her sûrede en üstte gösterilecek) */
 const BESMELE_TEXT = `Hepimizi ve her birimizi daima bağrına basan ve ilişkisini asla kesmeyen, her zaman iyiliğimize meyilli doğanın, can veren o gücün! Adına`;
 
-// 4) Durum
+/* Durum */
 const $ = s => document.querySelector(s);
-const byKey = new Map();            // "s:a" → {sure,ayet,meal,aciklama,last}
+const byKey = new Map();   // "s:a" → {sure, ayet, meal, aciklama, last}
 let lastUpdated = null;
 let currentSurah = null;
 
 /* ===================== BOOT ===================== */
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // UI event’leri
   $('#backBtn')?.addEventListener('click', () => goHome());
   $('#searchBox')?.addEventListener('input', () => currentSurah ? renderSurah(currentSurah) : null);
 
-  // Yükleniyor overlay: sadece burada göster → veri gelince kapanır
   showLoading(true);
   try {
     await loadAll();
@@ -88,9 +73,7 @@ function renderHome(){
   const fr = document.createDocumentFragment();
   for (let s=1; s<=114; s++){
     let done = 0;
-    for (let a=1; a<=AYAHS[s]; a++){
-      if (byKey.has(`${s}:${a}`)) done++;
-    }
+    for (let a=1; a<=AYAHS[s]; a++) if (byKey.has(`${s}:${a}`)) done++;
     const btn = document.createElement('button');
     btn.className = 'surah-btn' + (done>0 ? ' done' : '');
     btn.innerHTML = `${s} - ${NAMES[s]}${done>0 ? `<span class="sub">${done}/${AYAHS[s]} tamamlandı</span>`:''}`;
@@ -104,11 +87,10 @@ function renderHome(){
 
 function openSurah(s){
   currentSurah = s;
-
-  const list = $('#surahList');
-  const view = $('#surahView');
-  list.hidden = true;  list.style.display = 'none';
-  view.hidden = false; view.style.display = '';
+  $('#surahList').hidden = true;
+  $('#surahList').style.display = 'none';
+  $('#surahView').hidden = false;
+  $('#surahView').style.display = '';
 
   $('#surahTitle').textContent = `${s} - ${NAMES[s]}`;
   $('#crumbs').innerHTML = `<a href="#" onclick="return goHome()">Ana sayfa</a> › ${s} - ${NAMES[s]}`;
@@ -122,8 +104,8 @@ function renderSurah(s){
   const wrap = $('#ayahList');
   const fr = document.createDocumentFragment();
 
-  // — Besmele kartı: Fâtiha (1) hariç, arama yokken göster
-  if (!q && s !== 1) {
+  /* Besmele kartı: Fâtiha (1) HARİÇ her zaman en üstte */
+  if (s !== 1) {
     const b = document.createElement('div');
     b.className = 'ayah-card basmala';
     b.innerHTML = `
@@ -133,7 +115,7 @@ function renderSurah(s){
     fr.appendChild(b);
   }
 
-  // — Ayet kartları (sadece meali olanlar)
+  /* Ayet kartları: sadece meali olanlar */
   for (let a = 1; a <= AYAHS[s]; a++) {
     const rec = byKey.get(`${s}:${a}`);
     if (!rec) continue;
@@ -186,9 +168,9 @@ function showLoading(v){
   el.classList.toggle('show', !!v);
 }
 
-// [[3:4]]/[[3:4-6]] iç linkleri
+/* [[3:4]] / [[3:4-6]] iç linkleri */
 function linkify(txt){
-  return txt.replace(/\[\[\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s*\]\]/g,
+  return (txt||'').replace(/\[\[\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s*\]\]/g,
     (m, s, a1, a2)=>{
       s = +s; a1 = +a1;
       const js = `
