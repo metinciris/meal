@@ -34,3 +34,25 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui
 .foot{border-top:1px solid #2d3748;color:var(--muted);padding:10px 12px;text-align:center}
 .surah-view h2 { margin: 12px 0; font-weight: 700; }
 
+/* Yükleniyor katmanı */
+.loading{
+  position: fixed; inset: 0;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.35); backdrop-filter: blur(2px);
+  color: #fff; font-weight: 600; z-index: 9999;
+}
+.loading.show{ display: flex; }
+
+/* Ayet kartı içinde numara rozeti (başta gizli/soluk) */
+.ayah-card{ position: relative; }
+.ayah-card .anum{
+  position: absolute; top: 8px; right: 10px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid #374151;
+  color: #9ca3af;   /* soluk */
+  font-size: 12px; padding: 2px 6px; border-radius: 8px;
+  opacity: 0; transition: opacity .15s ease;
+}
+/* hover’da veya tıklamayla açıldığında görünür */
+.ayah-card:hover .anum,
+.ayah-card.shownum .anum{ opacity: .95; }
