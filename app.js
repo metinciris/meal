@@ -1,4 +1,4 @@
-/**************** app.js — canlı JSON API + responsive arayüz ****************/
+/**************** app.js — canlı JSON API + TTS ****************/
 
 /* Web App (/exec) URL — senin verdiğin adres */
 const API_URL = 'https://script.google.com/macros/s/AKfycbwxoqSvwWMYeZO2Oj4mNm8yZppFMrhPZl9K25NN89Q2zTGmuAU1ucoaitc0rM_FbzkU/exec';
@@ -31,15 +31,37 @@ const byKey = new Map();   // "s:a" → {sure, ayet, meal, aciklama, last}
 let lastUpdated = null;
 let currentSurah = null;
 
+/* ==== TTS durum & sözlük ==== */
+const tts = {
+  synth: window.speechSynthesis || null,
+  voice: null,
+  rate: 1.0,
+  queue: [],     // {id, text, el}
+  idx: -1,
+  playing: false,
+  dict: {        // basit varsayılan – üzerine dosyadan yüklenecek
+    replacements: [
+      // ["Yûnus","Yunus"], ["Âl-i","Ali"], ...
+    ]
+  }
+};
+
 /* ===================== BOOT ===================== */
 
 document.addEventListener('DOMContentLoaded', async () => {
-  $('#backBtn')?.addEventListener('click', () => goHome());
+  $('#backBtn')?.addEventListener('click', () => { ttsStop(); return goHome(); });
   $('#searchBox')?.addEventListener('input', () => currentSurah ? renderSurah(currentSurah) : null);
 
+  // TTS UI
+  $('#ttsPlay')?.addEventListener('click', onTtsPlay);
+  $('#ttsPause')?.addEventListener('click', onTtsPause);
+  $('#ttsStop')?.addEventListener('click', onTtsStop);
+  $('#ttsRate')?.addEventListener('input', e => { tts.rate = parseFloat(e.target.value || '1'); });
+
+  // Yükleniyor overlay
   showLoading(true);
   try {
-    await loadAll();
+    await Promise.all([ loadAll(), initTTS(), loadTTSDict() ]);
     renderHome();
   } catch (e) {
     console.error(e);
@@ -77,7 +99,7 @@ function renderHome(){
     const btn = document.createElement('button');
     btn.className = 'surah-btn' + (done>0 ? ' done' : '');
     btn.innerHTML = `${s} - ${NAMES[s]}${done>0 ? `<span class="sub">${done}/${AYAHS[s]} tamamlandı</span>`:''}`;
-    btn.onclick = () => openSurah(s);
+    btn.onclick = () => { ttsStop(); openSurah(s); };
     fr.appendChild(btn);
   }
   list.replaceChildren(fr);
@@ -87,14 +109,10 @@ function renderHome(){
 
 function openSurah(s){
   currentSurah = s;
-  $('#surahList').hidden = true;
-  $('#surahList').style.display = 'none';
-  $('#surahView').hidden = false;
-  $('#surahView').style.display = '';
-
+  $('#surahList').hidden = true;  $('#surahList').style.display = 'none';
+  $('#surahView').hidden = false; $('#surahView').style.display = '';
   $('#surahTitle').textContent = `${s} - ${NAMES[s]}`;
   $('#crumbs').innerHTML = `<a href="#" onclick="return goHome()">Ana sayfa</a> › ${s} - ${NAMES[s]}`;
-
   window.scrollTo({ top: 0, behavior: 'auto' });
   renderSurah(s);
 }
@@ -104,17 +122,15 @@ function renderSurah(s){
   const wrap = $('#ayahList');
   const fr = document.createDocumentFragment();
 
-  /* Besmele kartı: Fâtiha (1) HARİÇ her zaman en üstte */
+  // — Besmele kartı: Fâtiha (1) HARİÇ her zaman en üstte
   if (s !== 1) {
     const b = document.createElement('div');
     b.className = 'ayah-card basmala';
-    b.innerHTML = `
-          <p dir="auto" class="bsm-text">${escapeHTML(BESMELE_TEXT)}</p>
-    `;
+    b.innerHTML = `<p dir="auto" class="bsm-text">${escapeHTML(BESMELE_TEXT)}</p>`;
     fr.appendChild(b);
   }
 
-  /* Ayet kartları: sadece meali olanlar */
+  // — Ayet kartları (sadece meali olanlar)
   for (let a = 1; a <= AYAHS[s]; a++) {
     const rec = byKey.get(`${s}:${a}`);
     if (!rec) continue;
@@ -151,28 +167,156 @@ function renderSurah(s){
   }
 
   wrap.replaceChildren(fr);
+
+  // Sûre değiştiyse TTS kuyruğunu sıfırla
+  ttsStop(false); // sessiz stop
 }
+
+/* ===================== TTS (Web Speech API) ===================== */
+
+async function initTTS(){
+  if (!tts.synth) return;
+  // Türkçe bir ses seç
+  const pickVoice = () => {
+    const voices = tts.synth.getVoices();
+    // tr-TR öncelik; yoksa ilk ses
+    tts.voice = voices.find(v => /tr[-_]?TR/i.test(v.lang)) || voices[0] || null;
+  };
+  pickVoice();
+  // Bazı tarayıcılarda sesler async geliyor
+  if (speechSynthesis && speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = pickVoice;
+  }
+}
+
+async function loadTTSDict(){
+  // İsteğe bağlı sözlük dosyası: /data/tts-dict.json
+  try{
+    const res = await fetch('data/tts-dict.json', {cache:'no-store'});
+    if (res.ok) {
+      const j = await res.json();
+      if (j && Array.isArray(j.replacements)) tts.dict.replacements = j.replacements;
+    }
+  } catch(_) { /* yoksa sorun değil */ }
+}
+
+function buildTTSQueueForSurah(s){
+  const cards = [...document.querySelectorAll('#ayahList .ayah-card')]
+    .filter(el => !el.classList.contains('basmala')); // besmeleyi okuma kuyruğuna eklemek istemezsen
+  const queue = [];
+  for (const el of cards){
+    const id = el.id; // a-3-4
+    const p = el.querySelector('p');
+    if (!p) continue;
+    const text = normalizeForTTS(p.innerText || p.textContent || '');
+    if (!text.trim()) continue;
+    queue.push({ id, text, el });
+  }
+  return queue;
+}
+
+function normalizeForTTS(text){
+  // Sözlükteki eşleştirmeleri uygula (basit sıralı replace)
+  let out = (text || '').toString();
+  for (const [from, to] of (tts.dict.replacements || [])) {
+    if (!from) continue;
+    const re = new RegExp(escapeReg(from), 'g'); // basit global
+    out = out.replace(re, to);
+  }
+  return out;
+}
+function escapeReg(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+/* ---- UI olayları ---- */
+function onTtsPlay(){
+  if (!tts.synth) { alert('Tarayıcı TTS desteği bulunamadı. (Web Speech API)'); return; }
+  if (tts.playing) return;
+  tts.queue = buildTTSQueueForSurah(currentSurah);
+  if (!tts.queue.length){ alert('Okunacak ayet bulunamadı.'); return; }
+  tts.idx = -1;
+  tts.playing = true;
+  updateTTSButtons();
+  nextUtterance();
+}
+function onTtsPause(){
+  if (!tts.synth) return;
+  if (tts.synth.speaking && !tts.synth.paused) {
+    tts.synth.pause();
+    $('#ttsPause').textContent = '▶︎ Devam';
+  } else if (tts.synth.paused) {
+    tts.synth.resume();
+    $('#ttsPause').textContent = '⏸ Duraklat';
+  }
+}
+function onTtsStop(){
+  ttsStop(true);
+}
+function ttsStop(resetButtons){
+  if (!tts.synth) return;
+  try { tts.synth.cancel(); } catch(_) {}
+  unmarkReading();
+  tts.playing = false;
+  tts.idx = -1;
+  tts.queue = [];
+  if (resetButtons !== false) updateTTSButtons();
+}
+
+/* ---- Akış ---- */
+function nextUtterance(){
+  if (!tts.playing) return;
+  tts.idx++;
+  if (tts.idx >= tts.queue.length) { ttsStop(true); return; }
+
+  const item = tts.queue[tts.idx];
+  const u = new SpeechSynthesisUtterance(item.text);
+  u.lang = (tts.voice && tts.voice.lang) || 'tr-TR';
+  u.voice = tts.voice || null;
+  u.rate = tts.rate || 1.0;
+  u.pitch = 1.0;
+
+  // vurgula + kaydır
+  unmarkReading();
+  item.el.classList.add('reading');
+  item.el.scrollIntoView({behavior:'smooth',block:'center'});
+
+  u.onend = () => nextUtterance();
+  u.onerror = () => nextUtterance(); // hata olsa bile ilerle
+
+  tts.synth.speak(u);
+  updateTTSButtons();
+}
+
+function unmarkReading(){
+  document.querySelectorAll('.ayah-card.reading').forEach(el => el.classList.remove('reading'));
+}
+
+function updateTTSButtons(){
+  $('#ttsPlay').disabled = !!tts.playing && tts.idx >= 0;
+  $('#ttsPause').disabled = !tts.playing;
+  $('#ttsStop').disabled = !tts.playing;
+  $('#ttsPause').textContent = (speechSynthesis && speechSynthesis.paused) ? '▶︎ Devam' : '⏸ Duraklat';
+}
+
+/* ===================== NAV & UTIL ===================== */
 
 function goHome(){
   currentSurah = null;
+  ttsStop(true);
   renderHome();
   return false;
 }
 
-/* ===================== YARDIMCILAR ===================== */
-
 function showLoading(v){
-  const el = $('#loading');
-  if (!el) return;
+  const el = $('#loading'); if (!el) return;
   el.classList.toggle('show', !!v);
 }
 
-/* [[3:4]] / [[3:4-6]] iç linkleri */
 function linkify(txt){
   return (txt||'').replace(/\[\[\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s*\]\]/g,
     (m, s, a1, a2)=>{
       s = +s; a1 = +a1;
       const js = `
+        ttsStop(true);
         openSurah(${s});
         setTimeout(()=>{
           const el = document.getElementById('a-${s}-${a1}');
