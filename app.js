@@ -92,43 +92,55 @@ function openSurah(s){
 
 
 function renderSurah(s){
-  const q = ($('#searchBox').value || '').trim().toLowerCase();
-  const wrap = $('#ayahList');
+  const q = (document.querySelector('#searchBox').value || '').trim().toLowerCase();
+  const wrap = document.querySelector('#ayahList');
   const fr = document.createDocumentFragment();
 
-  for (let a=1; a<=AYAHS[s]; a++){
+  for (let a = 1; a <= AYAHS[s]; a++) {
     const rec = byKey.get(`${s}:${a}`);
-    const has = !!rec;
-    const text = rec ? (rec.meal || '') : '';
-    const note = rec ? (rec.aciklama || '') : '';
+    if (!rec) continue; // ⇦ meali olmayanları tamamen atla
+
+    const text = rec.meal || '';
+    const note = rec.aciklama || '';
 
     if (q && !(text.toLowerCase().includes(q) || note.toLowerCase().includes(q))) continue;
 
     const card = document.createElement('div');
     card.className = 'ayah-card';
-    card.innerHTML = has
-      ? `<h3>${s}:${a}</h3><p dir="auto">${escapeHTML(text)}</p>${note ? `<div class="note" dir="auto">${linkify(escapeHTML(note))}</div>`:''}`
-      : `<h3>${s}:${a}</h3><p class="note">Bu ayetin meali henüz girilmemiş.</p>`;
+    card.id = `a-${s}-${a}`;
+    card.innerHTML =
+      `<h3>${s}:${a}</h3>
+       <p dir="auto">${escapeHTML(text)}</p>
+       ${note ? `<div class="note" dir="auto">${linkify(escapeHTML(note))}</div>` : ''}`;
     fr.appendChild(card);
   }
+
   wrap.replaceChildren(fr);
 }
 
+
 function goHome(){
   currentSurah = null;
+  const list = document.querySelector('#surahList');
+  const view = document.querySelector('#surahView');
+  view.hidden = true;
+  view.style.display = 'none';
+  list.hidden = false;
+  list.style.display = '';
+  document.querySelector('#crumbs').textContent = 'Ana sayfa';
   renderHome();
   return false;
 }
 
+
 /* ------------ Yardımcılar ------------ */
 function linkify(txt){
-  // [[2:255]] veya [[2:255-257]]
   return txt.replace(/\[\[\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s*\]\]/g,
     (m, s, a1, a2)=>{
-      s=+s; a1=+a1; a2=a2?+a2:null;
-      return a2
-        ? `<a href="#" onclick="openSurah(${s}); setTimeout(()=>document.querySelector('.ayah-card h3:contains(${s}:${a1})'),0)">${s}:${a1}-${a2}</a>`
-        : `<a href="#" onclick="openSurah(${s});">${s}:${a1}</a>`;
+      s = +s; a1 = +a1; a2 = a2 ? +a2 : null;
+      const jump = `openSurah(${s}); setTimeout(()=>document.getElementById('a-${s}-${a1}')?.scrollIntoView({behavior:'smooth',block:'start'}), 50); return false;`;
+      return `<a href="#" onclick="${jump}">${s}:${a2 ? `${a1}-${a2}` : a1}</a>`;
     });
 }
+
 function escapeHTML(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
