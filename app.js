@@ -1,5 +1,14 @@
-/****** Basit, şık UI + canlı JSON API ******/
-const API_URL = 'https://script.google.com/macros/s/AKfycbwxoqSvwWMYeZO2Oj4mNm8yZppFMrhPZl9K25NN89Q2zTGmuAU1ucoaitc0rM_FbzkU/exec'; // ← buraya Web App (exec) URL'ni koy
+/**************** app.js — canlı JSON API + sade & şık arayüz ****************/
+/*  Yapı:
+    - API_URL: Apps Script Web App (/exec) adresin
+    - Ana sayfa: Sûre listesi (tamamlananlar yeşil), tıklayınca sûre görünümü
+    - Sûre görünümü: Sadece meali olan ayetler, numara gizli rozet (hover/tıkla görünür)
+    - Arama: Sûre içinde meal + açıklama alanında filtreler
+    - İç link: [[3:4]] tıklanınca sûreyı açar, ilgili ayete kaydırır ve numarayı kısa süre gösterir
+    - Yükleniyor katmanı: İlk yüklemede overlay
+*/
+
+const API_URL = 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE'; // ← /exec ile biten Web App URL
 
 // Sûre adları
 const NAMES = [
@@ -23,19 +32,30 @@ const AYAHS = [0,7,286,200,176,120,165,206,75,129,109,123,111,43,52,99,128,111,1
  36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,11,8,3,9,5,4,7,3,6,3,5,4,5,6];
 
 const $ = s => document.querySelector(s);
-const byKey = new Map(); // "s:a" → {sure,ayet,meal,aciklama,last}
+const byKey = new Map();            // "s:a" → {sure,ayet,meal,aciklama,last}
 let lastUpdated = null;
+let currentSurah = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  $('#backBtn').addEventListener('click', () => goHome());
-  $('#searchBox').addEventListener('input', () => renderSurah(currentSurah));
-  await loadAll(); // ilk yüklemede hepsini al
-  renderHome();
+  // UI event’leri
+  $('#backBtn')?.addEventListener('click', () => goHome());
+  $('#searchBox')?.addEventListener('input', () => currentSurah ? renderSurah(currentSurah) : null);
+
+  // İlk yüklemede overlay göster
+  showLoading(true);
+  try {
+    await loadAll();
+    renderHome();
+  } finally {
+    showLoading(false);
+  }
 });
 
+/* ===================== DATA ===================== */
+
 async function loadAll(){
-  const url = `${API_URL}?route=all`;
-  const res = await fetch(url, { cache:'no-store' });
+  const res = await fetch(`${API_URL}?route=all`, { cache:'no-store' });
+  if (!res.ok) throw new Error('API hata: ' + res.status);
   const j = await res.json();
   byKey.clear();
   for (const x of j.rows) byKey.set(`${x.sure}:${x.ayet}`, x);
@@ -43,21 +63,21 @@ async function loadAll(){
   $('#lastUpdated').textContent = lastUpdated || '—';
 }
 
-/* ------------ Home (sûre listesi) ------------ */
+/* ===================== HOME (sûre listesi) ===================== */
+
 function renderHome(){
   const list = $('#surahList');
-  $('#surahView').hidden = true;
-  list.hidden = false;
-
-  // breadcrumb
-  $('#crumbs').innerHTML = `Ana sayfa`;
+  const view = $('#surahView');
+  view.hidden = true; view.style.display = 'none';
+  list.hidden = false; list.style.display = '';
+  $('#crumbs').textContent = 'Ana sayfa';
 
   const fr = document.createDocumentFragment();
   for (let s=1; s<=114; s++){
-    // tamamlanan ayet sayısı
     let done = 0;
-    for (let a=1; a<=AYAHS[s]; a++) if (byKey.has(`${s}:${a}`)) done++;
-
+    for (let a=1; a<=AYAHS[s]; a++){
+      if (byKey.has(`${s}:${a}`)) done++;
+    }
     const btn = document.createElement('button');
     btn.className = 'surah-btn' + (done>0 ? ' done' : '');
     btn.innerHTML = `${s} - ${NAMES[s]}${done>0 ? `<span class="sub">${done}/${AYAHS[s]} tamamlandı</span>`:''}`;
@@ -67,38 +87,31 @@ function renderHome(){
   list.replaceChildren(fr);
 }
 
-/* ------------ Sûre görünümü ------------ */
+/* ===================== SÛRE GÖRÜNÜMÜ ===================== */
+
 function openSurah(s){
   currentSurah = s;
 
-  // listeyi tamamen gizle, sûre görünümünü göster
-  const list = document.querySelector('#surahList');
-  const view = document.querySelector('#surahView');
-  list.hidden = true;
-  list.style.display = 'none';
-  view.hidden = false;
-  view.style.display = '';
+  const list = $('#surahList');
+  const view = $('#surahView');
+  list.hidden = true;  list.style.display = 'none';
+  view.hidden = false; view.style.display = '';
 
-  // başlık & breadcrumb
-  document.querySelector('#surahTitle').textContent = `${s} - ${NAMES[s]}`;
-  document.querySelector('#crumbs').innerHTML =
-    `<a href="#" onclick="return goHome()">Ana sayfa</a> › ${s} - ${NAMES[s]}`;
+  $('#surahTitle').textContent = `${s} - ${NAMES[s]}`;
+  $('#crumbs').innerHTML = `<a href="#" onclick="return goHome()">Ana sayfa</a> › ${s} - ${NAMES[s]}`;
 
-  // en üste kaydır
-  window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
-
+  window.scrollTo({ top: 0, behavior: 'auto' });
   renderSurah(s);
 }
 
-
 function renderSurah(s){
-  const q = (document.querySelector('#searchBox').value || '').trim().toLowerCase();
-  const wrap = document.querySelector('#ayahList');
+  const q = ($('#searchBox')?.value || '').trim().toLowerCase();
+  const wrap = $('#ayahList');
   const fr = document.createDocumentFragment();
 
   for (let a = 1; a <= AYAHS[s]; a++) {
     const rec = byKey.get(`${s}:${a}`);
-    if (!rec) continue; // ⇦ meali olmayanları tamamen atla
+    if (!rec) continue; // meali olmayan ayeti hiç gösterme
 
     const text = rec.meal || '';
     const note = rec.aciklama || '';
@@ -108,39 +121,69 @@ function renderSurah(s){
     const card = document.createElement('div');
     card.className = 'ayah-card';
     card.id = `a-${s}-${a}`;
-    card.innerHTML =
-      `<h3>${s}:${a}</h3>
-       <p dir="auto">${escapeHTML(text)}</p>
-       ${note ? `<div class="note" dir="auto">${linkify(escapeHTML(note))}</div>` : ''}`;
+
+    // numara rozeti (gizli; hover/tıkla görünür)
+    const num = document.createElement('span');
+    num.className = 'anum';
+    num.textContent = `${s}:${a}`;
+    card.appendChild(num);
+
+    // içerik – başta numarayı göstermiyoruz
+    card.insertAdjacentHTML('beforeend',
+      `<p dir="auto">${escapeHTML(text)}</p>` +
+      (note ? `<div class="note" dir="auto">${linkify(escapeHTML(note))}</div>` : '')
+    );
+
+    // karta tıklayınca numarayı kısa süre göster
+    card.addEventListener('click', (ev) => {
+      if (ev.target.tagName === 'A') return; // iç link tıklandıysa karışma
+      card.classList.add('shownum');
+      setTimeout(()=>card.classList.remove('shownum'), 1600);
+    });
+
     fr.appendChild(card);
   }
 
   wrap.replaceChildren(fr);
 }
 
-
 function goHome(){
   currentSurah = null;
-  const list = document.querySelector('#surahList');
-  const view = document.querySelector('#surahView');
-  view.hidden = true;
-  view.style.display = 'none';
-  list.hidden = false;
-  list.style.display = '';
-  document.querySelector('#crumbs').textContent = 'Ana sayfa';
   renderHome();
   return false;
 }
 
+/* ===================== YARDIMCILAR ===================== */
 
-/* ------------ Yardımcılar ------------ */
+function showLoading(v){
+  const el = $('#loading');
+  if (!el) return;
+  el.classList.toggle('show', !!v);
+}
+
+// [[3:4]]/[[3:4-6]] iç linkleri
 function linkify(txt){
   return txt.replace(/\[\[\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s*\]\]/g,
     (m, s, a1, a2)=>{
-      s = +s; a1 = +a1; a2 = a2 ? +a2 : null;
-      const jump = `openSurah(${s}); setTimeout(()=>document.getElementById('a-${s}-${a1}')?.scrollIntoView({behavior:'smooth',block:'start'}), 50); return false;`;
-      return `<a href="#" onclick="${jump}">${s}:${a2 ? `${a1}-${a2}` : a1}</a>`;
+      s = +s; a1 = +a1;
+      // hedefe kaydır + numarayı kısa süre göster
+      const js = `
+        openSurah(${s});
+        setTimeout(()=>{
+          const el = document.getElementById('a-${s}-${a1}');
+          if (el){
+            el.classList.add('shownum');
+            el.scrollIntoView({behavior:'smooth',block:'start'});
+            setTimeout(()=>el.classList.remove('shownum'), 1800);
+          }
+        }, 120);
+        return false;`;
+      return `<a href="#" onclick="${js}">${s}:${a2 ? `${a1}-${a2}` : a1}</a>`;
     });
 }
 
-function escapeHTML(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function escapeHTML(s){
+  return s.replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+}
