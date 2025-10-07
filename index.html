@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="tr" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kuran Meal PWA</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preload" href="app.js" as="script">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Kuran Meal</h1>
+    <div class="controls">
+      <label>Sıralama:
+        <select id="orderSelect">
+          <option>Kitap (Mushaf) Sırası</option>
+          <option>Nüzul (İniş) Sırası</option>
+        </select>
+      </label>
+      <input id="searchBox" placeholder="Ara (meal & açıklama)..." />
+    </div>
+  </header>
+
+  <main id="app">
+    <section id="notice" class="notice" hidden></section>
+
+    <section id="summary" class="summary">
+      <div id="stats"></div>
+      <div id="recent"></div>
+    </section>
+
+    <section id="surah-grid" class="grid"></section>
+    <section id="surah-view" class="surah" hidden>
+      <button id="backBtn">← Tüm Sureler</button>
+      <h2 id="surahTitle"></h2>
+      <div id="ayatGrid" class="ayat-grid"></div>
+      <article id="ayahDetail" class="ayah-detail" hidden></article>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <small>Son güncelleme: <span id="lastUpdated">—</span></small>
+  </footer>
+
+  <script src="app.js" defer></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
+</body>
+</html>
