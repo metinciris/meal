@@ -10,7 +10,13 @@
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbwxoqSvwWMYeZO2Oj4mNm8yZppFMrhPZl9K25NN89Q2zTGmuAU1ucoaitc0rM_FbzkU/exec'; // ← /exec ile biten Web App URL
 
-// Sûre adları
+
+/**************** app.js — canlı JSON API + responsive arayüz ****************/
+
+// 1) BURAYI DOLDUR: Apps Script Web App /exec URL
+const API_URL = 'https://script.google.com/macros/s/AKfycbwxoqSvwWMYeZO2Oj4mNm8yZppFMrhPZl9K25NN89Q2zTGmuAU1ucoaitc0rM_FbzkU/exec'; // ← /exec ile biten Web App URL
+
+// 2) Sûre adları ve ayet sayıları
 const NAMES = [
   '', 'Fâtiha','Bakara','Âl-i İmrân','Nisâ','Mâide','En’âm','A’râf','Enfâl','Tevbe','Yûnus','Hûd',
   'Yûsuf','Ra’d','İbrâhîm','Hicr','Nahl','İsrâ','Kehf','Meryem','Tâhâ','Enbiyâ','Hac','Mü’minûn',
@@ -24,28 +30,35 @@ const NAMES = [
   'Tekâsür','Asr','Hümeze','Fîl','Kureyş','Mâûn','Kevser','Kâfirûn','Nasr','Tebbet','İhlâs',
   'Felâk','Nâs'
 ];
-
-// Ayet sayıları
 const AYAHS = [0,7,286,200,176,120,165,206,75,129,109,123,111,43,52,99,128,111,110,98,135,
  112,78,118,64,77,227,93,88,69,60,34,30,73,54,45,83,182,88,75,85,54,53,89,59,37,35,38,29,18,45,
  60,49,62,55,78,96,29,22,24,13,14,11,11,18,12,12,30,52,52,44,28,28,20,56,40,31,50,40,46,42,29,19,
  36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,11,8,3,9,5,4,7,3,6,3,5,4,5,6];
 
+// 3) Besmele (Fâtiha hariç göster)
+const BESMELE_TEXT = `Hepimizi ve her birimizi daima bağrına basan ve ilişkisini asla kesmeyen, her zaman iyiliğimize meyilli doğanın, can veren o gücün! Adına`;
+
+// 4) Durum
 const $ = s => document.querySelector(s);
 const byKey = new Map();            // "s:a" → {sure,ayet,meal,aciklama,last}
 let lastUpdated = null;
 let currentSurah = null;
+
+/* ===================== BOOT ===================== */
 
 document.addEventListener('DOMContentLoaded', async () => {
   // UI event’leri
   $('#backBtn')?.addEventListener('click', () => goHome());
   $('#searchBox')?.addEventListener('input', () => currentSurah ? renderSurah(currentSurah) : null);
 
-  // İlk yüklemede overlay göster
+  // Yükleniyor overlay: sadece burada göster → veri gelince kapanır
   showLoading(true);
   try {
     await loadAll();
     renderHome();
+  } catch (e) {
+    console.error(e);
+    alert('Veri yüklenemedi.');
   } finally {
     showLoading(false);
   }
@@ -109,9 +122,21 @@ function renderSurah(s){
   const wrap = $('#ayahList');
   const fr = document.createDocumentFragment();
 
+  // — Besmele kartı: Fâtiha (1) hariç, arama yokken göster
+  if (!q && s !== 1) {
+    const b = document.createElement('div');
+    b.className = 'ayah-card basmala';
+    b.innerHTML = `
+      <div class="bsm-title">BESMELE</div>
+      <p dir="auto" class="bsm-text">${escapeHTML(BESMELE_TEXT)}</p>
+    `;
+    fr.appendChild(b);
+  }
+
+  // — Ayet kartları (sadece meali olanlar)
   for (let a = 1; a <= AYAHS[s]; a++) {
     const rec = byKey.get(`${s}:${a}`);
-    if (!rec) continue; // meali olmayan ayeti hiç gösterme
+    if (!rec) continue;
 
     const text = rec.meal || '';
     const note = rec.aciklama || '';
@@ -128,7 +153,7 @@ function renderSurah(s){
     num.textContent = `${s}:${a}`;
     card.appendChild(num);
 
-    // içerik – başta numarayı göstermiyoruz
+    // içerik
     card.insertAdjacentHTML('beforeend',
       `<p dir="auto">${escapeHTML(text)}</p>` +
       (note ? `<div class="note" dir="auto">${linkify(escapeHTML(note))}</div>` : '')
@@ -136,7 +161,7 @@ function renderSurah(s){
 
     // karta tıklayınca numarayı kısa süre göster
     card.addEventListener('click', (ev) => {
-      if (ev.target.tagName === 'A') return; // iç link tıklandıysa karışma
+      if (ev.target.tagName === 'A') return;
       card.classList.add('shownum');
       setTimeout(()=>card.classList.remove('shownum'), 1600);
     });
@@ -166,7 +191,6 @@ function linkify(txt){
   return txt.replace(/\[\[\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s*\]\]/g,
     (m, s, a1, a2)=>{
       s = +s; a1 = +a1;
-      // hedefe kaydır + numarayı kısa süre göster
       const js = `
         openSurah(${s});
         setTimeout(()=>{
@@ -183,7 +207,7 @@ function linkify(txt){
 }
 
 function escapeHTML(s){
-  return s.replace(/[&<>"']/g, m => ({
+  return (s||'').toString().replace(/[&<>"']/g, m => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[m]));
 }
