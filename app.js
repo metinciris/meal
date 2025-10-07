@@ -68,16 +68,28 @@ function renderHome(){
 }
 
 /* ------------ Sûre görünümü ------------ */
-let currentSurah = null;
-
 function openSurah(s){
   currentSurah = s;
-  $('#surahList').hidden = true;
-  $('#surahView').hidden = false;
-  $('#surahTitle').textContent = `${s} - ${NAMES[s]}`;
-  $('#crumbs').innerHTML = `<a href="#" onclick="return goHome()">Ana sayfa</a> › ${s} - ${NAMES[s]}`;
+
+  // listeyi tamamen gizle, sûre görünümünü göster
+  const list = document.querySelector('#surahList');
+  const view = document.querySelector('#surahView');
+  list.hidden = true;
+  list.style.display = 'none';
+  view.hidden = false;
+  view.style.display = '';
+
+  // başlık & breadcrumb
+  document.querySelector('#surahTitle').textContent = `${s} - ${NAMES[s]}`;
+  document.querySelector('#crumbs').innerHTML =
+    `<a href="#" onclick="return goHome()">Ana sayfa</a> › ${s} - ${NAMES[s]}`;
+
+  // en üste kaydır
+  window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+
   renderSurah(s);
 }
+
 
 function renderSurah(s){
   const q = ($('#searchBox').value || '').trim().toLowerCase();
