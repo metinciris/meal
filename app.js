@@ -8,7 +8,7 @@
     - Yükleniyor katmanı: İlk yüklemede overlay
 */
 
-const API_URL = 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE'; // ← /exec ile biten Web App URL
+const API_URL = 'https://script.google.com/macros/s/AKfycbwxoqSvwWMYeZO2Oj4mNm8yZppFMrhPZl9K25NN89Q2zTGmuAU1ucoaitc0rM_FbzkU/exec'; // ← /exec ile biten Web App URL
 
 // Sûre adları
 const NAMES = [
