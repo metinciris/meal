@@ -1,36 +1,34 @@
-<!doctype html>
-<html lang="tr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kuran Meal (Kitap Sırası)</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
 <body>
-    <div id="loading" class="loading" aria-live="polite">Yükleniyor…</div>
-  <header class="topbar">
-<header class="topbar">
-  <div class="brand">
-    <h1>Kuran Meal</h1>
-    <div id="crumbs" class="crumbs">Ana sayfa</div>
+  <div id="loading" class="loading" aria-live="polite">
+    <div class="loading-box">
+      <div class="loading-title">Kuran'ın gölgesinde</div>
+      <div class="loading-author">Ayhan KIRMIZI</div>
+      <div class="loading-quote">Aklını kullanmayanların üzerine pislik yağar</div>
+      <div class="loading-spin">Yükleniyor…</div>
+    </div>
   </div>
-  <input id="searchBox" class="search" placeholder="Ayet içinde ara..." />
-</header>
 
-<main class="container">
-  <section id="surahList" class="surah-list"></section>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Kuran Meal</h1>
+      <div id="crumbs" class="crumbs">Ana sayfa</div>
+    </div>
+    <input id="searchBox" class="search" placeholder="Ayet içinde ara..." />
+  </header>
 
-  <section id="surahView" class="surah-view" hidden>
-    <button id="backBtn" class="back">← Tüm sûreler</button>
-    <h2 id="surahTitle"></h2>
-    <div id="ayahList" class="ayah-list"></div>
-  </section>
-</main>
+  <main class="container">
+    <section id="surahList" class="surah-list"></section>
 
-<footer class="foot">
-  <small>Son güncelleme: <span id="lastUpdated">—</span></small>
-</footer>
+    <section id="surahView" class="surah-view" hidden>
+      <button id="backBtn" class="back">← Tüm sûreler</button>
+      <h2 id="surahTitle"></h2>
+      <div id="ayahList" class="ayah-list"></div>
+    </section>
+  </main>
 
-<script src="app.js" defer></script>
+  <footer class="foot">
+    <small>Son güncelleme: <span id="lastUpdated">—</span></small>
+  </footer>
+
+  <script src="app.js" defer></script>
 </body>
-</html>
