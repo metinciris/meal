@@ -109,8 +109,7 @@ function renderSurah(s){
     const b = document.createElement('div');
     b.className = 'ayah-card basmala';
     b.innerHTML = `
-      <div class="bsm-title"></div>
-      <p dir="auto" class="bsm-text">${escapeHTML(BESMELE_TEXT)}</p>
+          <p dir="auto" class="bsm-text">${escapeHTML(BESMELE_TEXT)}</p>
     `;
     fr.appendChild(b);
   }
