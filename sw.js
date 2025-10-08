@@ -1,34 +1,28 @@
-const CACHE = 'meal-pwa-v1';
+/* sw.js — cache-first assets, network-first API */
+const CACHE = 'meal-v1';
 const ASSETS = [
-  '/', '/index.html', '/styles.css', '/app.js',
-  '/manifest.webmanifest',
-  '/icons/icon-192.png', '/icons/icon-512.png',
-  '/data/normalized.csv' // Yol B için; Yol A kullanıyorsan bu olmayabilir
+  './', './index.html', './styles.css', './app.js',
+  './manifest.webmanifest',
+  './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png'
 ];
 
-self.addEventListener('install', e=>{
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+  self.skipWaiting();
 });
-self.addEventListener('activate', e=>{ e.waitUntil(self.clients.claim()); });
-
-self.addEventListener('fetch', e=>{
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // CSV (Google veya yerel) için network-first, fallback cache
-  if (url.pathname.endsWith('.csv') || url.searchParams.get('output')==='csv'){
-    e.respondWith((async ()=>{
-      try {
-        const fresh = await fetch(e.request);
-        const cache = await caches.open(CACHE);
-        cache.put(e.request, fresh.clone());
-        return fresh;
-      } catch {
-        const cached = await caches.match(e.request);
-        if (cached) return cached;
-        throw new Error('offline and no cache');
-      }
-    })());
+  // Apps Script API → network-first
+  if (url.href.includes('/macros/s/')) {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;
   }
-  // Diğerleri: cache-first
-  e.respondWith(caches.match(e.request).then(r=> r || fetch(e.request)));
+  // Diğer her şey → cache-first
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
