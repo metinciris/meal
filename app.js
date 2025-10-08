@@ -1,4 +1,4 @@
-/**************** app.js — canlı JSON API + TTS ****************/
+/**************** app.js — canlı JSON API + TTS (Play/Stop + hız + tıklayıp o yerden oynat) ****************/
 
 /* Web App (/exec) URL — senin verdiğin adres */
 const API_URL = 'https://script.google.com/macros/s/AKfycbwxoqSvwWMYeZO2Oj4mNm8yZppFMrhPZl9K25NN89Q2zTGmuAU1ucoaitc0rM_FbzkU/exec';
@@ -35,28 +35,22 @@ let currentSurah = null;
 const tts = {
   synth: window.speechSynthesis || null,
   voice: null,
-  rate: 1.0,
-  queue: [],     // {id, text, el}
+  rate: 0.8,   // <-- varsayılan hız 0.8
+  queue: [],   // {id, text, el}
   idx: -1,
   playing: false,
-  dict: {        // basit varsayılan – üzerine dosyadan yüklenecek
-    replacements: [
-      // ["Yûnus","Yunus"], ["Âl-i","Ali"], ...
-    ]
-  }
+  dict: { replacements: [] }
 };
 
 /* ===================== BOOT ===================== */
 
 document.addEventListener('DOMContentLoaded', async () => {
   $('#backBtn')?.addEventListener('click', () => { ttsStop(); return goHome(); });
-  $('#searchBox')?.addEventListener('input', () => currentSurah ? renderSurah(currentSurah) : null);
 
   // TTS UI
   $('#ttsPlay')?.addEventListener('click', onTtsPlay);
-  $('#ttsPause')?.addEventListener('click', onTtsPause);
   $('#ttsStop')?.addEventListener('click', onTtsStop);
-  $('#ttsRate')?.addEventListener('input', e => { tts.rate = parseFloat(e.target.value || '1'); });
+  $('#ttsRate')?.addEventListener('input', e => { tts.rate = parseFloat(e.target.value || '0.8'); });
 
   // Yükleniyor overlay
   showLoading(true);
@@ -118,7 +112,6 @@ function openSurah(s){
 }
 
 function renderSurah(s){
-  const q = ($('#searchBox')?.value || '').trim().toLowerCase();
   const wrap = $('#ayahList');
   const fr = document.createDocumentFragment();
 
@@ -138,8 +131,6 @@ function renderSurah(s){
     const text = rec.meal || '';
     const note = rec.aciklama || '';
 
-    if (q && !(text.toLowerCase().includes(q) || note.toLowerCase().includes(q))) continue;
-
     const card = document.createElement('div');
     card.className = 'ayah-card';
     card.id = `a-${s}-${a}`;
@@ -156,9 +147,12 @@ function renderSurah(s){
       (note ? `<div class="note" dir="auto">${linkify(escapeHTML(note))}</div>` : '')
     );
 
-    // karta tıklayınca numarayı kısa süre göster
+    // karta tıklayınca: O AYETTEN itibaren TTS başlat
     card.addEventListener('click', (ev) => {
-      if (ev.target.tagName === 'A') return;
+      const t = ev.target;
+      if (t.tagName === 'A') return; // iç linke saygı
+      ttsPlayFromElement(card);      // <-- burada başlatıyoruz
+      // numarayı kısa süre göster (görsel geri bildirim)
       card.classList.add('shownum');
       setTimeout(()=>card.classList.remove('shownum'), 1600);
     });
@@ -169,7 +163,7 @@ function renderSurah(s){
   wrap.replaceChildren(fr);
 
   // Sûre değiştiyse TTS kuyruğunu sıfırla
-  ttsStop(false); // sessiz stop
+  ttsStop(false); // sessiz stop (buton durumları güncellenecek)
 }
 
 /* ===================== TTS (Web Speech API) ===================== */
@@ -179,11 +173,9 @@ async function initTTS(){
   // Türkçe bir ses seç
   const pickVoice = () => {
     const voices = tts.synth.getVoices();
-    // tr-TR öncelik; yoksa ilk ses
     tts.voice = voices.find(v => /tr[-_]?TR/i.test(v.lang)) || voices[0] || null;
   };
   pickVoice();
-  // Bazı tarayıcılarda sesler async geliyor
   if (speechSynthesis && speechSynthesis.onvoiceschanged !== undefined) {
     speechSynthesis.onvoiceschanged = pickVoice;
   }
@@ -202,32 +194,30 @@ async function loadTTSDict(){
 
 function buildTTSQueueForSurah(s){
   const cards = [...document.querySelectorAll('#ayahList .ayah-card')]
-    .filter(el => !el.classList.contains('basmala')); // besmeleyi okuma kuyruğuna eklemek istemezsen
+    .filter(el => !el.classList.contains('basmala'));
   const queue = [];
   for (const el of cards){
-    const id = el.id; // a-3-4
     const p = el.querySelector('p');
     if (!p) continue;
     const text = normalizeForTTS(p.innerText || p.textContent || '');
     if (!text.trim()) continue;
-    queue.push({ id, text, el });
+    queue.push({ id: el.id, text, el });
   }
   return queue;
 }
 
 function normalizeForTTS(text){
-  // Sözlükteki eşleştirmeleri uygula (basit sıralı replace)
   let out = (text || '').toString();
   for (const [from, to] of (tts.dict.replacements || [])) {
     if (!from) continue;
-    const re = new RegExp(escapeReg(from), 'g'); // basit global
+    const re = new RegExp(escapeReg(from), 'g');
     out = out.replace(re, to);
   }
   return out;
 }
 function escapeReg(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
-/* ---- UI olayları ---- */
+/* ---- UI: Play/Stop ---- */
 function onTtsPlay(){
   if (!tts.synth) { alert('Tarayıcı TTS desteği bulunamadı. (Web Speech API)'); return; }
   if (tts.playing) return;
@@ -238,27 +228,33 @@ function onTtsPlay(){
   updateTTSButtons();
   nextUtterance();
 }
-function onTtsPause(){
-  if (!tts.synth) return;
-  if (tts.synth.speaking && !tts.synth.paused) {
-    tts.synth.pause();
-    $('#ttsPause').textContent = '▶︎ Devam';
-  } else if (tts.synth.paused) {
-    tts.synth.resume();
-    $('#ttsPause').textContent = '⏸ Duraklat';
-  }
-}
-function onTtsStop(){
-  ttsStop(true);
-}
+
+function onTtsStop(){ ttsStop(true); }
+
 function ttsStop(resetButtons){
-  if (!tts.synth) return;
-  try { tts.synth.cancel(); } catch(_) {}
+  if (tts.synth) { try { tts.synth.cancel(); } catch(_) {} }
   unmarkReading();
   tts.playing = false;
   tts.idx = -1;
   tts.queue = [];
   if (resetButtons !== false) updateTTSButtons();
+}
+
+/* ---- Belirli bir ayetten başlat ---- */
+function ttsPlayFromElement(el){
+  if (!tts.synth) { alert('Tarayıcı TTS desteği bulunamadı.'); return; }
+  // Kuyruğu kur
+  const queue = buildTTSQueueForSurah(currentSurah);
+  const idx = queue.findIndex(it => it.el === el);
+  if (idx === -1) return;
+
+  // Mevcut konuşmayı iptal et ve bu ayetten devam
+  if (tts.synth.speaking || tts.synth.paused) { try { tts.synth.cancel(); } catch(_) {} }
+  tts.queue = queue;
+  tts.idx = idx - 1;  // nextUtterance() bir artırıyor
+  tts.playing = true;
+  updateTTSButtons();
+  nextUtterance();
 }
 
 /* ---- Akış ---- */
@@ -271,7 +267,7 @@ function nextUtterance(){
   const u = new SpeechSynthesisUtterance(item.text);
   u.lang = (tts.voice && tts.voice.lang) || 'tr-TR';
   u.voice = tts.voice || null;
-  u.rate = tts.rate || 1.0;
+  u.rate = tts.rate || 0.8;
   u.pitch = 1.0;
 
   // vurgula + kaydır
@@ -280,7 +276,7 @@ function nextUtterance(){
   item.el.scrollIntoView({behavior:'smooth',block:'center'});
 
   u.onend = () => nextUtterance();
-  u.onerror = () => nextUtterance(); // hata olsa bile ilerle
+  u.onerror = () => nextUtterance();
 
   tts.synth.speak(u);
   updateTTSButtons();
@@ -291,10 +287,8 @@ function unmarkReading(){
 }
 
 function updateTTSButtons(){
-  $('#ttsPlay').disabled = !!tts.playing && tts.idx >= 0;
-  $('#ttsPause').disabled = !tts.playing;
+  $('#ttsPlay').disabled = !!tts.playing;
   $('#ttsStop').disabled = !tts.playing;
-  $('#ttsPause').textContent = (speechSynthesis && speechSynthesis.paused) ? '▶︎ Devam' : '⏸ Duraklat';
 }
 
 /* ===================== NAV & UTIL ===================== */
@@ -311,6 +305,7 @@ function showLoading(v){
   el.classList.toggle('show', !!v);
 }
 
+// [[3:4]] / [[3:4-6]] iç linkleri
 function linkify(txt){
   return (txt||'').replace(/\[\[\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s*\]\]/g,
     (m, s, a1, a2)=>{
