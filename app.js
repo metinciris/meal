@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([ loadAll(), initTTS(), loadTTSDict() ]);
     renderHome();
   } catch (e) {
-    console.error('[BOOT] Veri yüklenemedi:', e);
+    console.error(e);
     alert('Veri yüklenemedi.');
   } finally {
     showLoading(false);
@@ -68,38 +68,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 /* ===================== DATA ===================== */
 
 async function loadAll(){
-  try {
-    if (!API_URL) throw new Error('API_URL boş');
-
-    const url = `${API_URL}?route=all`;
-    const res = await fetch(url, { cache:'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status} @ ${url}`);
-
-    // JSON güvenli çözümleme
-    let j;
-    try { j = await res.json(); }
-    catch (e) { throw new Error('JSON parse hatası: ' + e.message); }
-
-    const rows = Array.isArray(j?.rows) ? j.rows : [];
-    byKey.clear();
-    for (const x of rows) {
-      if (x && Number.isFinite(+x.sure) && Number.isFinite(+x.ayet)) {
-        byKey.set(`${+x.sure}:${+x.ayet}`, x);
-      }
-    }
-
-    lastUpdated = (typeof j?.lastUpdated === 'string') ? j.lastUpdated : null;
-    const lastEl = $('#lastUpdated');
-    if (lastEl) lastEl.textContent = lastUpdated || '—';
-
-    // Basit sağlık kontrolü: hiç kayıt yoksa logla
-    if (byKey.size === 0) {
-      console.warn('[loadAll] Kayıt bulunamadı (rows boş). URL doğru mu? Google Apps Script izinleri açık mı?');
-    }
-  } catch (err) {
-    console.error('[loadAll] Hata:', err);
-    throw err; // üstteki try/catch gösterecek
-  }
+  const res = await fetch(`${API_URL}?route=all`, { cache:'no-store' });
+  if (!res.ok) throw new Error('API hata: ' + res.status);
+  const j = await res.json();
+  byKey.clear();
+  for (const x of j.rows) byKey.set(`${x.sure}:${x.ayet}`, x);
+  lastUpdated = j.lastUpdated || null;
+  const lastEl = $('#lastUpdated'); if (lastEl) lastEl.textContent = lastUpdated || '—';
 }
 
 /* ===================== HOME (sûre listesi) ===================== */
@@ -107,15 +82,9 @@ async function loadAll(){
 function renderHome(){
   const list = $('#surahList');
   const view = $('#surahView');
-
-  if (view) { view.hidden = true; view.style.display = 'none'; }
-  if (list) { list.hidden = false; list.style.display = ''; }
+  view.hidden = true; view.style.display = 'none';
+  list.hidden = false; list.style.display = '';
   const crumbs = $('#crumbs'); if (crumbs) crumbs.textContent = 'Ana sayfa';
-
-  if (!list) {
-    console.warn('#surahList bulunamadı. HTML içine bir kapsayıcı ekleyin.');
-    return;
-  }
 
   const fr = document.createDocumentFragment();
   for (let s=1; s<=114; s++){
@@ -132,8 +101,9 @@ function renderHome(){
 
 /* ===================== BİRLEŞTİRME (Aynı meal, ardışık ayet → tek kart) ===================== */
 
-function _norm(s){ return String(s || '').trim().replace(/\s+/g, ' '); }
+const _norm = s => String(s || '').trim().replace(/\s+/g, ' ');
 
+/** Verilen sûrede ardışık ve aynı meale sahip ayetleri gruplar. */
 function groupSameMealsInSurah(s){
   const groups = [];
   let cur = null;
@@ -153,20 +123,14 @@ function groupSameMealsInSurah(s){
   if (cur) groups.push(cur);
   return groups;
 }
-
-function formatRangeLabel(g){
-  return g.from === g.to ? `${g.sure}:${g.from}` : `${g.sure}:${g.from}–${g.to}`;
-}
+const formatRange = g => g.from === g.to ? `${g.sure}:${g.from}` : `${g.sure}:${g.from}–${g.to}`;
 
 /* ===================== SÛRE GÖRÜNÜMÜ ===================== */
 
 function openSurah(s){
   currentSurah = s;
-  const list = $('#surahList');
-  const view = $('#surahView');
-  if (list) { list.hidden = true;  list.style.display = 'none'; }
-  if (view) { view.hidden = false; view.style.display = ''; }
-
+  $('#surahList').hidden = true;  $('#surahList').style.display = 'none';
+  $('#surahView').hidden = false; $('#surahView').style.display = '';
   const ttl = $('#surahTitle'); if (ttl) ttl.textContent = `${s} - ${NAMES[s]}`;
   const crumbs = $('#crumbs'); if (crumbs) crumbs.innerHTML = `<a href="#" onclick="return goHome()">Ana sayfa</a> › ${s} - ${NAMES[s]}`;
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -175,10 +139,6 @@ function openSurah(s){
 
 function renderSurah(s){
   const wrap = $('#ayahList');
-  if (!wrap) {
-    console.warn('#ayahList bulunamadı. HTML içine bir kapsayıcı ekleyin.');
-    return;
-  }
   const fr = document.createDocumentFragment();
 
   // — Besmele kartı: Fâtiha (1) HARİÇ her zaman en üstte
@@ -195,18 +155,22 @@ function renderSurah(s){
   for (const g of groups){
     const card = document.createElement('div');
     card.className = 'ayah-card';
+    // Kart id’si: ilk ayete göre
     card.id = `a-${s}-${g.from}`;
 
+    // numara rozet/başlık: "3:169" veya "3:169–170"
     const num = document.createElement('span');
     num.className = 'anum';
-    num.textContent = formatRangeLabel(g);
+    num.textContent = formatRange(g);
     card.appendChild(num);
 
-    const p = document.createElement('p');
-    p.setAttribute('dir', 'auto');
-    p.textContent = g.meal || '';
-    card.appendChild(p);
+    // meal metni
+    const text = document.createElement('p');
+    text.setAttribute('dir','auto');
+    text.textContent = g.meal || '';
+    card.appendChild(text);
 
+    // açıklama varsa
     if (g.aciklama && _norm(g.aciklama)) {
       const note = document.createElement('div');
       note.className = 'note';
@@ -215,9 +179,9 @@ function renderSurah(s){
       card.appendChild(note);
     }
 
-    // --- Gizli anchorlar (aralıktaki tüm ayetler için) ---
+    // — Gizli anchorlar: aralıktaki HER ayet için (linkify [[s:a]] çalışsın)
     for (let a = g.from; a <= g.to; a++){
-      if (a === g.from) continue;
+      if (a === g.from) continue; // ilk id kartta zaten mevcut
       const anchor = document.createElement('span');
       anchor.id = `a-${s}-${a}`;
       anchor.style.position = 'relative';
@@ -228,9 +192,9 @@ function renderSurah(s){
       card.appendChild(anchor);
     }
 
+    // karta tıklayınca → bu gruptan itibaren TTS başlat
     card.addEventListener('click', (ev) => {
-      const t = ev.target;
-      if (t.tagName === 'A') return; // iç linke saygı
+      if (ev.target.tagName === 'A') return; // iç link tıklamasını bozma
       ttsPlayFromElement(card);
       card.classList.add('shownum');
       setTimeout(()=>card.classList.remove('shownum'), 1600);
@@ -247,6 +211,7 @@ function renderSurah(s){
 
 async function initTTS(){
   if (!tts.synth) return;
+  // Türkçe bir ses seç
   const pickVoice = () => {
     const voices = tts.synth.getVoices();
     tts.voice = voices.find(v => /tr[-_]?TR/i.test(v.lang)) || voices[0] || null;
@@ -258,16 +223,18 @@ async function initTTS(){
 }
 
 async function loadTTSDict(){
+  // İsteğe bağlı sözlük dosyası: /data/tts-dict.json
   try{
     const res = await fetch('data/tts-dict.json', {cache:'no-store'});
     if (res.ok) {
       const j = await res.json();
       if (j && Array.isArray(j.replacements)) tts.dict.replacements = j.replacements;
     }
-  } catch(_) { /* opsiyonel */ }
+  } catch(_) { /* yoksa sorun değil */ }
 }
 
 function buildTTSQueueForSurah(s){
+  // Kartlar (besmele hariç)
   const cards = [...document.querySelectorAll('#ayahList .ayah-card')]
     .filter(el => !el.classList.contains('basmala'));
   const queue = [];
@@ -318,13 +285,15 @@ function ttsStop(resetButtons){
 /* ---- Belirli bir ayetten başlat ---- */
 function ttsPlayFromElement(el){
   if (!tts.synth) { alert('Tarayıcı TTS desteği bulunamadı.'); return; }
+  // Kuyruğu kur
   const queue = buildTTSQueueForSurah(currentSurah);
   const idx = queue.findIndex(it => it.el === el);
   if (idx === -1) return;
 
+  // Mevcut konuşmayı iptal et ve bu ayetten devam
   if (tts.synth.speaking || tts.synth.paused) { try { tts.synth.cancel(); } catch(_) {} }
   tts.queue = queue;
-  tts.idx = idx - 1;
+  tts.idx = idx - 1;  // nextUtterance() bir artırıyor
   tts.playing = true;
   updateTTSButtons();
   nextUtterance();
@@ -343,6 +312,7 @@ function nextUtterance(){
   u.rate = tts.rate || 0.8;
   u.pitch = 1.0;
 
+  // vurgula + kaydır
   unmarkReading();
   item.el.classList.add('reading');
   item.el.scrollIntoView({behavior:'smooth',block:'center'});
@@ -359,10 +329,8 @@ function unmarkReading(){
 }
 
 function updateTTSButtons(){
-  const play = $('#ttsPlay');
-  const stop = $('#ttsStop');
-  if (play) play.disabled = !!tts.playing;
-  if (stop) stop.disabled = !tts.playing;
+  $('#ttsPlay') && ($('#ttsPlay').disabled = !!tts.playing);
+  $('#ttsStop') && ($('#ttsStop').disabled = !tts.playing);
 }
 
 /* ===================== NAV & UTIL ===================== */
