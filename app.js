@@ -285,10 +285,19 @@ function updateTTSButtons(){
 function goHome(){ currentSurah=null; ttsStop(true); renderHome(); return false; }
 
 function showLoading(v){
-  const overlay=$('#loading'); if (overlay) overlay.classList.toggle('show', !!v);
-  const legacy=$('#loading-state'); if (legacy) legacy.hidden=!v;
-  if (v){ const empty=$('#empty-state'), error=$('#error-state'); if (empty) empty.hidden=true; if (error) error.hidden=true; }
+  // Sadece eski tasarım kutusunu göster/gizle
+  const legacy = document.querySelector('#loading-state');
+  if (legacy) legacy.hidden = !v;
+
+  // Üstteki yarı saydam overlay'i artık KULLANMIYORUZ.
+  // (index.html'deki #loading dursa da görünmeyecek)
+  const overlay = document.querySelector('#loading');
+  if (overlay) overlay.classList.remove('show');
+
+  // Erişilebilirlik için küçük sinyal
+  document.body.setAttribute('aria-busy', v ? 'true' : 'false');
 }
+
 
 function linkify(txt){
   return (txt||'').replace(/\[\[\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s*\]\]/g,
