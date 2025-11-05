@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([ loadAll(), initTTS(), loadTTSDict() ]);
     renderHome();
   } catch (e) {
-    console.error(e);
+    console.error('[BOOT] Veri yüklenemedi:', e);
     alert('Veri yüklenemedi.');
   } finally {
     showLoading(false);
@@ -68,13 +68,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 /* ===================== DATA ===================== */
 
 async function loadAll(){
-  const res = await fetch(`${API_URL}?route=all`, { cache:'no-store' });
-  if (!res.ok) throw new Error('API hata: ' + res.status);
-  const j = await res.json();
-  byKey.clear();
-  for (const x of j.rows) byKey.set(`${x.sure}:${x.ayet}`, x);
-  lastUpdated = j.lastUpdated || null;
-  $('#lastUpdated').textContent = lastUpdated || '—';
+  try {
+    if (!API_URL) throw new Error('API_URL boş');
+
+    const url = `${API_URL}?route=all`;
+    const res = await fetch(url, { cache:'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} @ ${url}`);
+
+    // JSON güvenli çözümleme
+    let j;
+    try { j = await res.json(); }
+    catch (e) { throw new Error('JSON parse hatası: ' + e.message); }
+
+    const rows = Array.isArray(j?.rows) ? j.rows : [];
+    byKey.clear();
+    for (const x of rows) {
+      if (x && Number.isFinite(+x.sure) && Number.isFinite(+x.ayet)) {
+        byKey.set(`${+x.sure}:${+x.ayet}`, x);
+      }
+    }
+
+    lastUpdated = (typeof j?.lastUpdated === 'string') ? j.lastUpdated : null;
+    const lastEl = $('#lastUpdated');
+    if (lastEl) lastEl.textContent = lastUpdated || '—';
+
+    // Basit sağlık kontrolü: hiç kayıt yoksa logla
+    if (byKey.size === 0) {
+      console.warn('[loadAll] Kayıt bulunamadı (rows boş). URL doğru mu? Google Apps Script izinleri açık mı?');
+    }
+  } catch (err) {
+    console.error('[loadAll] Hata:', err);
+    throw err; // üstteki try/catch gösterecek
+  }
 }
 
 /* ===================== HOME (sûre listesi) ===================== */
@@ -82,9 +107,15 @@ async function loadAll(){
 function renderHome(){
   const list = $('#surahList');
   const view = $('#surahView');
-  view.hidden = true; view.style.display = 'none';
-  list.hidden = false; list.style.display = '';
-  $('#crumbs').textContent = 'Ana sayfa';
+
+  if (view) { view.hidden = true; view.style.display = 'none'; }
+  if (list) { list.hidden = false; list.style.display = ''; }
+  const crumbs = $('#crumbs'); if (crumbs) crumbs.textContent = 'Ana sayfa';
+
+  if (!list) {
+    console.warn('#surahList bulunamadı. HTML içine bir kapsayıcı ekleyin.');
+    return;
+  }
 
   const fr = document.createDocumentFragment();
   for (let s=1; s<=114; s++){
@@ -101,13 +132,8 @@ function renderHome(){
 
 /* ===================== BİRLEŞTİRME (Aynı meal, ardışık ayet → tek kart) ===================== */
 
-/** Boşluk normalize et (karşılaştırma için) */
 function _norm(s){ return String(s || '').trim().replace(/\s+/g, ' '); }
 
-/**
- * Verilen sûrede ardışık ve aynı meale sahip ayetleri gruplar.
- * Çıktı: [{ sure, from, to, meal, aciklama }]
- */
 function groupSameMealsInSurah(s){
   const groups = [];
   let cur = null;
@@ -116,18 +142,10 @@ function groupSameMealsInSurah(s){
     const rec = byKey.get(`${s}:${a}`);
     if (!rec || !_norm(rec.meal)) continue;
 
-    if (
-      cur &&
-      cur.sure === s &&
-      cur.to + 1 === a &&
-      _norm(cur.meal) === _norm(rec.meal)
-    ){
-      // mevcut grubu uzat
+    if (cur && cur.sure === s && cur.to + 1 === a && _norm(cur.meal) === _norm(rec.meal)){
       cur.to = a;
-      // açıklama yoksa ilk bulduğunu taşı (opsiyonel)
       if (!cur.aciklama && rec.aciklama) cur.aciklama = rec.aciklama;
     } else {
-      // yeni grup başlat
       if (cur) groups.push(cur);
       cur = { sure: s, from: a, to: a, meal: rec.meal, aciklama: rec.aciklama || '' };
     }
@@ -136,7 +154,6 @@ function groupSameMealsInSurah(s){
   return groups;
 }
 
-/** "3:5" ya da "3:5–7" biçimi */
 function formatRangeLabel(g){
   return g.from === g.to ? `${g.sure}:${g.from}` : `${g.sure}:${g.from}–${g.to}`;
 }
@@ -145,16 +162,23 @@ function formatRangeLabel(g){
 
 function openSurah(s){
   currentSurah = s;
-  $('#surahList').hidden = true;  $('#surahList').style.display = 'none';
-  $('#surahView').hidden = false; $('#surahView').style.display = '';
-  $('#surahTitle').textContent = `${s} - ${NAMES[s]}`;
-  $('#crumbs').innerHTML = `<a href="#" onclick="return goHome()">Ana sayfa</a> › ${s} - ${NAMES[s]}`;
+  const list = $('#surahList');
+  const view = $('#surahView');
+  if (list) { list.hidden = true;  list.style.display = 'none'; }
+  if (view) { view.hidden = false; view.style.display = ''; }
+
+  const ttl = $('#surahTitle'); if (ttl) ttl.textContent = `${s} - ${NAMES[s]}`;
+  const crumbs = $('#crumbs'); if (crumbs) crumbs.innerHTML = `<a href="#" onclick="return goHome()">Ana sayfa</a> › ${s} - ${NAMES[s]}`;
   window.scrollTo({ top: 0, behavior: 'auto' });
   renderSurah(s);
 }
 
 function renderSurah(s){
   const wrap = $('#ayahList');
+  if (!wrap) {
+    console.warn('#ayahList bulunamadı. HTML içine bir kapsayıcı ekleyin.');
+    return;
+  }
   const fr = document.createDocumentFragment();
 
   // — Besmele kartı: Fâtiha (1) HARİÇ her zaman en üstte
@@ -170,23 +194,19 @@ function renderSurah(s){
 
   for (const g of groups){
     const card = document.createElement('div');
-    // Kart id'sini ilk ayete göre koyalım; linkify tek ayete gidiyorsa zaten bu karta denk gelir
     card.className = 'ayah-card';
     card.id = `a-${s}-${g.from}`;
 
-    // Görsel rozet: "3:169" veya "3:169–170"
     const num = document.createElement('span');
     num.className = 'anum';
     num.textContent = formatRangeLabel(g);
     card.appendChild(num);
 
-    // Meal
     const p = document.createElement('p');
     p.setAttribute('dir', 'auto');
     p.textContent = g.meal || '';
     card.appendChild(p);
 
-    // Açıklama varsa
     if (g.aciklama && _norm(g.aciklama)) {
       const note = document.createElement('div');
       note.className = 'note';
@@ -195,21 +215,19 @@ function renderSurah(s){
       card.appendChild(note);
     }
 
-    // --- Gizli anchorlar ---
-    // Kart içinde, aralıktaki HER ayet için görünmez bir <span id="a-s-a"> ekliyoruz ki [[3:170]] linkleri çalışsın.
+    // --- Gizli anchorlar (aralıktaki tüm ayetler için) ---
     for (let a = g.from; a <= g.to; a++){
-      if (a === g.from) continue; // ilk id zaten kartta var
+      if (a === g.from) continue;
       const anchor = document.createElement('span');
       anchor.id = `a-${s}-${a}`;
       anchor.style.position = 'relative';
-      anchor.style.top = '-64px';      // küçük bir ofset; scrollde başı kesilmesin
+      anchor.style.top = '-64px';
       anchor.style.display = 'block';
       anchor.style.height = '0';
       anchor.style.visibility = 'hidden';
       card.appendChild(anchor);
     }
 
-    // Karta tıkla → bu gruptan itibaren TTS başlat
     card.addEventListener('click', (ev) => {
       const t = ev.target;
       if (t.tagName === 'A') return; // iç linke saygı
@@ -222,16 +240,13 @@ function renderSurah(s){
   }
 
   wrap.replaceChildren(fr);
-
-  // Sûre değiştiyse TTS kuyruğunu sıfırla
-  ttsStop(false); // sessiz stop (buton durumları güncellenecek)
+  ttsStop(false); // sessiz stop
 }
 
 /* ===================== TTS (Web Speech API) ===================== */
 
 async function initTTS(){
   if (!tts.synth) return;
-  // Türkçe bir ses seç
   const pickVoice = () => {
     const voices = tts.synth.getVoices();
     tts.voice = voices.find(v => /tr[-_]?TR/i.test(v.lang)) || voices[0] || null;
@@ -243,18 +258,16 @@ async function initTTS(){
 }
 
 async function loadTTSDict(){
-  // İsteğe bağlı sözlük dosyası: /data/tts-dict.json
   try{
     const res = await fetch('data/tts-dict.json', {cache:'no-store'});
     if (res.ok) {
       const j = await res.json();
       if (j && Array.isArray(j.replacements)) tts.dict.replacements = j.replacements;
     }
-  } catch(_) { /* yoksa sorun değil */ }
+  } catch(_) { /* opsiyonel */ }
 }
 
 function buildTTSQueueForSurah(s){
-  // Grup kartlarını kuyruk olarak al (besmele hariç)
   const cards = [...document.querySelectorAll('#ayahList .ayah-card')]
     .filter(el => !el.classList.contains('basmala'));
   const queue = [];
@@ -305,15 +318,13 @@ function ttsStop(resetButtons){
 /* ---- Belirli bir ayetten başlat ---- */
 function ttsPlayFromElement(el){
   if (!tts.synth) { alert('Tarayıcı TTS desteği bulunamadı.'); return; }
-  // Kuyruğu kur
   const queue = buildTTSQueueForSurah(currentSurah);
   const idx = queue.findIndex(it => it.el === el);
   if (idx === -1) return;
 
-  // Mevcut konuşmayı iptal et ve bu ayetten devam
   if (tts.synth.speaking || tts.synth.paused) { try { tts.synth.cancel(); } catch(_) {} }
   tts.queue = queue;
-  tts.idx = idx - 1;  // nextUtterance() bir artırıyor
+  tts.idx = idx - 1;
   tts.playing = true;
   updateTTSButtons();
   nextUtterance();
@@ -332,7 +343,6 @@ function nextUtterance(){
   u.rate = tts.rate || 0.8;
   u.pitch = 1.0;
 
-  // vurgula + kaydır
   unmarkReading();
   item.el.classList.add('reading');
   item.el.scrollIntoView({behavior:'smooth',block:'center'});
