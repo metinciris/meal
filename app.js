@@ -74,7 +74,13 @@ async function loadAll(){
   byKey.clear();
   for (const x of j.rows) byKey.set(`${x.sure}:${x.ayet}`, x);
   lastUpdated = j.lastUpdated || null;
-  const lastEl = $('#lastUpdated'); if (lastEl) lastEl.textContent = lastUpdated || '—';
+
+  const lastEl = $('#lastUpdated');
+  if (lastEl) lastEl.textContent = lastUpdated || '—';
+
+  // Ana sayfa alt bilgi (TR tarih)
+  const homeLast = $('#homeLast');
+  if (homeLast) homeLast.textContent = formatTRDate(lastUpdated) || '—';
 }
 
 /* ===================== HOME (sûre listesi) ===================== */
@@ -85,6 +91,10 @@ function renderHome(){
   view.hidden = true; view.style.display = 'none';
   list.hidden = false; list.style.display = '';
   const crumbs = $('#crumbs'); if (crumbs) crumbs.textContent = 'Ana sayfa';
+
+  // “Son güncelleme” en altta dursun (TR tarih)
+  const homeLast = $('#homeLast');
+  if (homeLast) homeLast.textContent = formatTRDate(lastUpdated) || '—';
 
   const fr = document.createDocumentFragment();
   for (let s=1; s<=114; s++){
@@ -372,4 +382,15 @@ function escapeHTML(s){
   return (s||'').toString().replace(/[&<>"']/g, m => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[m]));
+}
+
+/* ====== TR tarih biçimi ====== */
+function formatTRDate(s){
+  if (!s) return '';
+  const d = new Date(s);
+  if (isNaN(d)) {
+    // Apps Script bazen "dd.MM.yyyy HH:mm" vb. dönebilir; o zaman düz stringi göster.
+    return String(s);
+  }
+  return d.toLocaleDateString('tr-TR', { day:'numeric', month:'long', year:'numeric' });
 }
