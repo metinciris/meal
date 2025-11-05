@@ -1,6 +1,6 @@
 :root{
   --bg:#0a1020; --panel:#0d1526; --panel-b:#1e2b47; --txt:#e8eefc; --mut:rgba(232,238,252,.78);
-  --acc:#2f6df6; --ok:#29c26a; --warn:#e6b34a;
+  --acc:#2f6df6; --ok:#29c26a; --warn:#e6b34a; --done-bg:#11233f; /* mealli buton rengi */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -27,10 +27,16 @@ body{
 .stat-value{font-size:1.25rem;font-weight:800}
 
 .surah-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem}
-.surah-btn{width:100%;text-align:left;background:var(--panel);border:1px solid var(--panel-b);color:var(--txt);
-  padding:.8rem .9rem;border-radius:12px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.16)}
+.surah-btn{
+  width:100%;text-align:left;background:var(--panel);border:1px solid var(--panel-b);color:var(--txt);
+  padding:.8rem .9rem;border-radius:12px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.16);
+  transition:transform .12s, box-shadow .12s, border-color .12s, background .12s
+}
 .surah-btn .sub{display:block;opacity:.75;font-size:.85rem;margin-top:.2rem}
-.surah-btn.done{border-color:#2a3a62}
+.surah-btn.done{
+  border-color:#2a3a62;
+  background: var(--done-bg);                 /* ✅ mealli sûrelere farklı arka plan */
+}
 .surah-btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(0,0,0,.22)}
 
 .surah-view{margin-top:6px}
@@ -53,12 +59,30 @@ body{
 .note{margin-top:.5rem;font-size:.92rem;opacity:.9;border-left:3px solid #2f4a85;padding-left:.6rem}
 .basmala .bsm-text{font-style:italic;opacity:.95}
 
-.empty-state,.loading-state,.error-state{
+.empty-state,.error-state{
   background:var(--panel);border:1px dashed var(--panel-b);border-radius:12px;padding:1rem;margin-top:1rem;text-align:center;opacity:.9
 }
 
+/* YÜKLENİYOR — eski tasarım */
+.loading-state{margin-top:1rem}
+.loading-box{
+  border:1px solid var(--panel-b);border-radius:12px;padding:1rem;background:#0b1220;
+  display:flex;flex-direction:column;gap:.35rem;align-items:flex-start
+}
+.loading-title{font-weight:800;font-size:1.05rem}
+.loading-author{opacity:.85}
+.loading-quote{opacity:.9;font-style:italic}
+.loading-spin{opacity:.85;margin-top:.35rem}
+
+/* Sayfa üstü örtü */
 .loading{
   display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);color:#fff;
   font:600 16px/1 system-ui;align-items:center;justify-content:center;z-index:9999
 }
 .loading.show{display:flex}
+
+/* Ana sayfa alt bilgi */
+.home-last{
+  margin-top:18px; padding-top:10px; border-top:1px dashed rgba(255,255,255,.12);
+  font-size:.95rem; opacity:.9
+}
