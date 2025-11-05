@@ -11,42 +11,38 @@
     <div class="toprow">
       <h1 class="site-title">Meal Görünümü</h1>
       <div class="meta">
-        <!-- Üst sağdaki 'Son güncelleme' KALDIRILDI -->
         <button id="backBtn" class="ghost">⟵ Ana sayfa</button>
       </div>
     </div>
 
-    <!-- Ekmek kırıntısı -->
     <div id="crumbs" class="crumbs">Ana sayfa</div>
   </header>
 
   <main class="site-main">
-    <!-- ANA LİSTE (sûre listesi) -->
+    <!-- ANA LİSTE -->
     <section id="surahList" class="surah-list"></section>
 
     <!-- SÛRE GÖRÜNÜMÜ -->
     <section id="surahView" class="surah-view" hidden style="display:none">
       <h2 id="surahTitle" class="surah-title">—</h2>
 
-      <!-- TTS kontrolleri -->
+      <!-- TTS kontrolleri (tek tuş) -->
       <div class="tts-controls">
-        <button id="ttsPlay" class="btn">▶︎ Oynat</button>
-        <button id="ttsStop" class="btn" disabled>■ Durdur</button>
+        <button id="ttsToggle" class="btn-minimal" aria-pressed="false">▶︎ Oynat</button>
         <label class="rate">
           Hız
-          <input id="ttsRate" type="range" min="0.5" max="1.5" step="0.05" value="0.8">
+          <input id="ttsRate" type="range" min="0.5" max="1.5" step="0.05" value="0.8" />
         </label>
       </div>
 
-      <!-- Ayet/Kart listesi -->
       <div id="ayahList" class="ayah-list"></div>
     </section>
 
-    <!-- Boş/ hata kutuları (opsiyonel) -->
+    <!-- Boş / Hata -->
     <div id="empty-state" class="empty-state" hidden>Henüz veri bulunamadı.</div>
     <div id="error-state" class="error-state" hidden>Bir hata oluştu. Lütfen tekrar deneyin.</div>
 
-    <!-- YÜKLENİYOR: eski tasarım -->
+    <!-- YÜKLENİYOR (eski tasarım) -->
     <div id="loading-state" class="loading-state" hidden>
       <div class="loading-box">
         <div class="loading-title">Kuran'ın gölgesinde</div>
@@ -56,7 +52,7 @@
       </div>
     </div>
 
-    <!-- Ana sayfa alt bilgisi: son güncelleme (TR tarih) -->
+    <!-- Ana sayfa alt bilgisi -->
     <div id="home-last" class="home-last">
       Son güncelleme: <strong id="homeLast">—</strong>
     </div>
@@ -66,7 +62,10 @@
     <small>© <span id="year"></span>  •  Ayhan KIRMIZI  •  "Aklını kullanmayanların üzerine pislik yağar"</small>
   </footer>
 
-  <!-- Sayfa üstü yükleniyor örtüsü (app.js -> showLoading) -->
+  <!-- Yüzen Durdur butonu -->
+  <button id="ttsFloatStop" class="float-stop" hidden title="Durdur">■</button>
+
+  <!-- Sayfa üstü yükleniyor örtüsü -->
   <div id="loading" class="loading">Yükleniyor…</div>
 
   <script src="./app.js"></script>
