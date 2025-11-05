@@ -16,10 +16,10 @@
       </div>
     </div>
 
-    <!-- Ekmek kırıntısı (breadcrumbs) -->
+    <!-- Ekmek kırıntısı -->
     <div id="crumbs" class="crumbs">Ana sayfa</div>
 
-    <!-- İstatistik çubuğu (opsiyonel; istersen dursun) -->
+    <!-- İstatistik çubuğu (isteğe bağlı) -->
     <div class="statbar">
       <div class="stat">
         <div class="stat-label">Kapsanan ayet (toplam)</div>
@@ -54,10 +54,24 @@
       <div id="ayahList" class="ayah-list"></div>
     </section>
 
-    <!-- Bilgi kutuları (opsiyonel) -->
+    <!-- Boş/ hata kutuları (opsiyonel) -->
     <div id="empty-state" class="empty-state" hidden>Henüz veri bulunamadı.</div>
-    <div id="loading-state" class="loading-state" hidden>Yükleniyor…</div>
     <div id="error-state" class="error-state" hidden>Bir hata oluştu. Lütfen tekrar deneyin.</div>
+
+    <!-- YÜKLENİYOR: eski tasarım -->
+    <div id="loading-state" class="loading-state" hidden>
+      <div class="loading-box">
+        <div class="loading-title">Kuran'ın gölgesinde</div>
+        <div class="loading-author">Ayhan KIRMIZI</div>
+        <div class="loading-quote">Aklını kullanmayanların üzerine pislik yağar</div>
+        <div class="loading-spin">Yükleniyor…</div>
+      </div>
+    </div>
+
+    <!-- Ana sayfa alt bilgisi: son güncelleme (TR tarih) -->
+    <div id="home-last" class="home-last">
+      Son güncelleme: <strong id="homeLast">—</strong>
+    </div>
   </main>
 
   <footer class="site-footer">
@@ -69,7 +83,6 @@
 
   <script src="./app.js"></script>
   <script>
-    // Yıl
     document.addEventListener('DOMContentLoaded', ()=> {
       const y = document.getElementById('year');
       if (y) y.textContent = new Date().getFullYear();
