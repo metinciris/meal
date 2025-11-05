@@ -8,8 +8,18 @@
 </head>
 <body>
   <header class="site-header">
-    <h1 class="site-title">Meal Görünümü</h1>
-    <!-- İstatistik çubuğu -->
+    <div class="toprow">
+      <h1 class="site-title">Meal Görünümü</h1>
+      <div class="meta">
+        <span>Son güncelleme: <strong id="lastUpdated">—</strong></span>
+        <button id="backBtn" class="ghost">⟵ Ana sayfa</button>
+      </div>
+    </div>
+
+    <!-- Ekmek kırıntısı (breadcrumbs) -->
+    <div id="crumbs" class="crumbs">Ana sayfa</div>
+
+    <!-- İstatistik çubuğu (opsiyonel; istersen dursun) -->
     <div class="statbar">
       <div class="stat">
         <div class="stat-label">Kapsanan ayet (toplam)</div>
@@ -23,10 +33,28 @@
   </header>
 
   <main class="site-main">
-    <!-- Liste kapsayıcısı -->
-    <section id="meal-list" class="meal-list" aria-live="polite"></section>
+    <!-- ANA LİSTE (sûre listesi) -->
+    <section id="surahList" class="surah-list"></section>
 
-    <!-- Boş/ yükleniyor mesajları -->
+    <!-- SÛRE GÖRÜNÜMÜ -->
+    <section id="surahView" class="surah-view" hidden style="display:none">
+      <h2 id="surahTitle" class="surah-title">—</h2>
+
+      <!-- TTS kontrolleri -->
+      <div class="tts-controls">
+        <button id="ttsPlay" class="btn">▶︎ Oynat</button>
+        <button id="ttsStop" class="btn" disabled>■ Durdur</button>
+        <label class="rate">
+          Hız
+          <input id="ttsRate" type="range" min="0.5" max="1.5" step="0.05" value="0.8">
+        </label>
+      </div>
+
+      <!-- Ayet/Kart listesi -->
+      <div id="ayahList" class="ayah-list"></div>
+    </section>
+
+    <!-- Bilgi kutuları (opsiyonel) -->
     <div id="empty-state" class="empty-state" hidden>Henüz veri bulunamadı.</div>
     <div id="loading-state" class="loading-state" hidden>Yükleniyor…</div>
     <div id="error-state" class="error-state" hidden>Bir hata oluştu. Lütfen tekrar deneyin.</div>
@@ -36,6 +64,16 @@
     <small>© <span id="year"></span> Meal Uygulaması</small>
   </footer>
 
+  <!-- Sayfa üstü yükleniyor örtüsü (app.js -> showLoading) -->
+  <div id="loading" class="loading">Yükleniyor…</div>
+
   <script src="./app.js"></script>
+  <script>
+    // Yıl
+    document.addEventListener('DOMContentLoaded', ()=> {
+      const y = document.getElementById('year');
+      if (y) y.textContent = new Date().getFullYear();
+    });
+  </script>
 </body>
 </html>
