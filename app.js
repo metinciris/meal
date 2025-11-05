@@ -353,9 +353,23 @@ function goHome(){
 }
 
 function showLoading(v){
-  const el = $('#loading'); if (!el) return;
-  el.classList.toggle('show', !!v);
+  // Üstteki yarı saydam örtü (istersen dursun)
+  const overlay = document.querySelector('#loading');
+  if (overlay) overlay.classList.toggle('show', !!v);
+
+  // Eski tasarım kutusu (asıl görmek istediğin)
+  const legacy = document.querySelector('#loading-state');
+  if (legacy) legacy.hidden = !v;
+
+  // Diğer durum kutularını yüklenirken gizle
+  const empty = document.querySelector('#empty-state');
+  const error = document.querySelector('#error-state');
+  if (v) {
+    if (empty) empty.hidden = true;
+    if (error) error.hidden = true;
+  }
 }
+
 
 // [[3:4]] / [[3:4-6]] iç linkleri
 function linkify(txt){
