@@ -78,6 +78,28 @@ body{
 .empty-state,.error-state{
   background:var(--panel);border:1px dashed var(--panel-b);border-radius:12px;padding:1rem;margin-top:1rem;text-align:center;opacity:.9
 }
+/* YÜKLENİYOR — eski tasarım: tam ekran ortalı görünsün */
+#loading-state{
+  position: fixed;
+  inset: 0;
+  display: none;              /* hidden değilse flex'e dönecek */
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  background: transparent;    /* istersen hafif karartma ekle: rgba(0,0,0,.25) */
+}
+#loading-state:not([hidden]){ display: flex; }
+
+.loading-box{
+  border:1px solid #1e2b47; border-radius:12px; padding:1.1rem 1.2rem;
+  background:#0b1220; box-shadow:0 10px 28px rgba(0,0,0,.35);
+  display:flex; flex-direction:column; gap:.35rem; align-items:flex-start;
+  max-width: min(90vw, 520px);
+}
+.loading-title{font-weight:800; font-size:1.15rem}
+.loading-author{opacity:.85}
+.loading-quote{opacity:.95; font-style:italic}
+.loading-spin{opacity:.9; margin-top:.45rem}
 
 /* “Yükleniyor — eski tasarım” kutusu */
 .loading-state{margin-top:1rem}
