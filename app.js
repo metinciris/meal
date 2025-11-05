@@ -99,6 +99,48 @@ function renderHome(){
   list.replaceChildren(fr);
 }
 
+/* ===================== BİRLEŞTİRME (Aynı meal, ardışık ayet → tek kart) ===================== */
+
+/** Boşluk normalize et (karşılaştırma için) */
+function _norm(s){ return String(s || '').trim().replace(/\s+/g, ' '); }
+
+/**
+ * Verilen sûrede ardışık ve aynı meale sahip ayetleri gruplar.
+ * Çıktı: [{ sure, from, to, meal, aciklama }]
+ */
+function groupSameMealsInSurah(s){
+  const groups = [];
+  let cur = null;
+
+  for (let a = 1; a <= AYAHS[s]; a++){
+    const rec = byKey.get(`${s}:${a}`);
+    if (!rec || !_norm(rec.meal)) continue;
+
+    if (
+      cur &&
+      cur.sure === s &&
+      cur.to + 1 === a &&
+      _norm(cur.meal) === _norm(rec.meal)
+    ){
+      // mevcut grubu uzat
+      cur.to = a;
+      // açıklama yoksa ilk bulduğunu taşı (opsiyonel)
+      if (!cur.aciklama && rec.aciklama) cur.aciklama = rec.aciklama;
+    } else {
+      // yeni grup başlat
+      if (cur) groups.push(cur);
+      cur = { sure: s, from: a, to: a, meal: rec.meal, aciklama: rec.aciklama || '' };
+    }
+  }
+  if (cur) groups.push(cur);
+  return groups;
+}
+
+/** "3:5" ya da "3:5–7" biçimi */
+function formatRangeLabel(g){
+  return g.from === g.to ? `${g.sure}:${g.from}` : `${g.sure}:${g.from}–${g.to}`;
+}
+
 /* ===================== SÛRE GÖRÜNÜMÜ ===================== */
 
 function openSurah(s){
@@ -123,36 +165,55 @@ function renderSurah(s){
     fr.appendChild(b);
   }
 
-  // — Ayet kartları (sadece meali olanlar)
-  for (let a = 1; a <= AYAHS[s]; a++) {
-    const rec = byKey.get(`${s}:${a}`);
-    if (!rec) continue;
+  // --- GRUPLAR ---
+  const groups = groupSameMealsInSurah(s);
 
-    const text = rec.meal || '';
-    const note = rec.aciklama || '';
-
+  for (const g of groups){
     const card = document.createElement('div');
+    // Kart id'sini ilk ayete göre koyalım; linkify tek ayete gidiyorsa zaten bu karta denk gelir
     card.className = 'ayah-card';
-    card.id = `a-${s}-${a}`;
+    card.id = `a-${s}-${g.from}`;
 
-    // numara rozeti (gizli; hover/tıkla görünür)
+    // Görsel rozet: "3:169" veya "3:169–170"
     const num = document.createElement('span');
     num.className = 'anum';
-    num.textContent = `${s}:${a}`;
+    num.textContent = formatRangeLabel(g);
     card.appendChild(num);
 
-    // içerik
-    card.insertAdjacentHTML('beforeend',
-      `<p dir="auto">${escapeHTML(text)}</p>` +
-      (note ? `<div class="note" dir="auto">${linkify(escapeHTML(note))}</div>` : '')
-    );
+    // Meal
+    const p = document.createElement('p');
+    p.setAttribute('dir', 'auto');
+    p.textContent = g.meal || '';
+    card.appendChild(p);
 
-    // karta tıklayınca: O AYETTEN itibaren TTS başlat
+    // Açıklama varsa
+    if (g.aciklama && _norm(g.aciklama)) {
+      const note = document.createElement('div');
+      note.className = 'note';
+      note.setAttribute('dir','auto');
+      note.innerHTML = linkify(escapeHTML(g.aciklama));
+      card.appendChild(note);
+    }
+
+    // --- Gizli anchorlar ---
+    // Kart içinde, aralıktaki HER ayet için görünmez bir <span id="a-s-a"> ekliyoruz ki [[3:170]] linkleri çalışsın.
+    for (let a = g.from; a <= g.to; a++){
+      if (a === g.from) continue; // ilk id zaten kartta var
+      const anchor = document.createElement('span');
+      anchor.id = `a-${s}-${a}`;
+      anchor.style.position = 'relative';
+      anchor.style.top = '-64px';      // küçük bir ofset; scrollde başı kesilmesin
+      anchor.style.display = 'block';
+      anchor.style.height = '0';
+      anchor.style.visibility = 'hidden';
+      card.appendChild(anchor);
+    }
+
+    // Karta tıkla → bu gruptan itibaren TTS başlat
     card.addEventListener('click', (ev) => {
       const t = ev.target;
       if (t.tagName === 'A') return; // iç linke saygı
-      ttsPlayFromElement(card);      // <-- burada başlatıyoruz
-      // numarayı kısa süre göster (görsel geri bildirim)
+      ttsPlayFromElement(card);
       card.classList.add('shownum');
       setTimeout(()=>card.classList.remove('shownum'), 1600);
     });
@@ -193,6 +254,7 @@ async function loadTTSDict(){
 }
 
 function buildTTSQueueForSurah(s){
+  // Grup kartlarını kuyruk olarak al (besmele hariç)
   const cards = [...document.querySelectorAll('#ayahList .ayah-card')]
     .filter(el => !el.classList.contains('basmala'));
   const queue = [];
@@ -287,8 +349,10 @@ function unmarkReading(){
 }
 
 function updateTTSButtons(){
-  $('#ttsPlay').disabled = !!tts.playing;
-  $('#ttsStop').disabled = !tts.playing;
+  const play = $('#ttsPlay');
+  const stop = $('#ttsStop');
+  if (play) play.disabled = !!tts.playing;
+  if (stop) stop.disabled = !tts.playing;
 }
 
 /* ===================== NAV & UTIL ===================== */
@@ -309,16 +373,16 @@ function showLoading(v){
 function linkify(txt){
   return (txt||'').replace(/\[\[\s*(\d{1,3})\s*:\s*(\d{1,3})(?:\s*-\s*(\d{1,3}))?\s*\]\]/g,
     (m, s, a1, a2)=>{
-      s = +s; a1 = +a1;
+      s = +s; a1 = +a1; a2 = a2 ? +a2 : null;
       const js = `
         ttsStop(true);
         openSurah(${s});
         setTimeout(()=>{
           const el = document.getElementById('a-${s}-${a1}');
           if (el){
-            el.classList.add('shownum');
+            el.classList?.add?.('shownum');
             el.scrollIntoView({behavior:'smooth',block:'start'});
-            setTimeout(()=>el.classList.remove('shownum'), 1800);
+            setTimeout(()=>el.classList?.remove?.('shownum'), 1800);
           }
         }, 120);
         return false;`;
