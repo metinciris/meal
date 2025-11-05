@@ -1,137 +1,133 @@
-:root{
-  --bg:#111827; --card:#1f2937; --ink:#e5e7eb; --muted:#9ca3af; --accent:#10b981; --accent-dim:#374151;
+/* Genel iskelet */
+:root {
+  --bg: #0a1020;
+  --panel: #0d1526;
+  --panel-border: #1e2b47;
+  --panel-soft: #0b1220;
+  --text: #e8eefc;
+  --muted: rgba(232, 238, 252, .75);
+  --accent: #2f6df6;
 }
 
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-
-/* container ortalı, kenarlarda nefes */
-.container{
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 16px;
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(1200px 800px at 10% -10%, #0f1b35 0%, var(--bg) 55%);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  line-height: 1.5;
 }
 
-.topbar{
-  position:sticky; top:0; z-index:10;
-  display:flex; gap:12px; justify-content:space-between; align-items:end;
-  padding:12px 16px; border-bottom:1px solid #2d3748;
-  background:linear-gradient(#111827,#0f172a);
-}
+.site-header { padding: 1.25rem 1rem .5rem; max-width: 1200px; margin: 0 auto; }
+.site-title { margin: 0 0 .4rem; letter-spacing: .2px; font-size: 1.4rem; }
 
-.brand h1{margin:0;font-size:20px}
-.crumbs{color:var(--muted);font-size:13px;margin-top:4px}
+.site-main { max-width: 1200px; margin: 0 auto; padding: .25rem 1rem 2rem; }
+.site-footer { max-width: 1200px; margin: 0 auto; padding: 1.25rem 1rem 2rem; opacity: .7; }
 
-.search{
-  min-width:220px; padding:8px 10px; border-radius:12px;
-  border:1px solid #374151; background:#0b1220; color:var(--ink)
-}
-
-/* --- Sûre listesi: responsive grid, ortalı --- */
-.surah-list{
+/* Stat bar */
+.statbar {
   display: grid;
-  grid-template-columns: 1fr;   /* mobil 1 sütun */
-  gap: 12px;
-  margin-top: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+  margin: .5rem 0 1rem;
 }
-@media (min-width: 640px){
-  .surah-list{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stat {
+  background: var(--panel-soft);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: .75rem .9rem;
 }
-@media (min-width: 1024px){
-  .surah-list{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stat-label {
+  font-size: .78rem;
+  opacity: .7;
+  margin-bottom: .15rem;
 }
-@media (min-width: 1280px){
-  .surah-list{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
-.surah-btn{
-  width:100%; text-align:center; padding:16px; border-radius:16px; border:1px solid #334155;
-  background:var(--accent-dim); color:var(--ink); font-weight:600; letter-spacing:.5px; cursor:pointer;
-  transition:transform .06s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
-  box-shadow: 0 1px 0 rgba(0,0,0,.25);
+/* Liste & kartlar */
+.meal-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: .9rem;
 }
-.surah-btn:hover{ transform:translateY(-1px); border-color:#4b5563; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
-.surah-btn.done{ background: var(--accent); color:#053; }
-.surah-btn .sub{ display:block; font-weight:500; font-size:12px; color:#053; opacity:.9 }
+@media (min-width: 720px) {
+  .meal-list { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 1100px) {
+  .meal-list { grid-template-columns: 1fr 1fr 1fr; }
+}
 
-/* --- Sûre görünümü --- */
-.surah-view{ margin-top:12px }
-.back{ background:#0b1220; border:1px solid #374151; color:var(--ink); padding:8px 12px; border-radius:10px; cursor:pointer }
-#surahTitle{ margin:10px 0 14px 0; font-weight: 800 }
+.meal-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 1rem 1rem 0.9rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.meal-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(0,0,0,.22);
+  border-color: #2a3a62;
+}
 
-/* Ayet listesi: okuma konforu için merkezde daha dar bir kolon */
-.ayah-list{
-  display:flex; flex-direction:column; gap:12px;
-  max-width: 860px;
-  margin: 0 auto;
+.meal-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0 0 .4rem;
+  letter-spacing: .2px;
 }
-.ayah-card{
-  position: relative;
-  background:var(--card); border:1px solid #374151; border-radius:14px; padding:14px;
+.meal-title a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(255,255,255,.2);
 }
-.ayah-card p{margin:0}
-.ayah-card .note{margin-top:8px; color:var(--muted); font-size:14px}
+.meal-title a:hover {
+  border-bottom-color: var(--accent);
+}
 
-/* Ayet numarası rozeti: gizli/soluk; hover veya tıklamada görünür */
-.ayah-card .anum{
-  position:absolute; top:8px; right:10px;
-  background: rgba(255,255,255,.08);
-  border: 1px solid #374151;
-  color: #9ca3af;
-  font-size: 12px; padding: 2px 6px; border-radius: 8px;
-  opacity: 0; transition: opacity .15s ease;
+.meal-text {
+  line-height: 1.65;
+  margin: 0 0 .7rem;
+  font-size: .98rem;
+  white-space: pre-wrap;
 }
-.ayah-card:hover .anum,
-.ayah-card.shownum .anum{ opacity: .95; }
 
-/* Besmele kartı – yumuşak vurgu */
-.ayah-card.basmala{
-  border-color: #3b8261;
-  background: linear-gradient(180deg, rgba(16,185,129,.08), rgba(16,185,129,.03));
+.meal-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .78rem;
+  opacity: .8;
+  margin: 0 0 .5rem;
+  background: rgba(255,255,255,.03);
+  padding: .25rem .5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.08);
 }
-.bsm-title{
-  font-weight: 700; font-size: 13px; letter-spacing: .08em;
-  color: #7de0b7; margin-bottom: 6px;
-}
-.bsm-text{ margin: 0; font-style: italic; }
 
-/* Alt bilgi */
-.foot{ border-top:1px solid #2d3748; color:var(--muted); padding:10px 16px; text-align:center }
+.meal-note {
+  font-size: .82rem;
+  opacity: .9;
+  border-left: 3px solid #2f4a85;
+  padding-left: .6rem;
+  margin: .2rem 0 .9rem;
+}
 
-/* --- Yükleniyor katmanı --- */
-.loading{
-  position: fixed; inset: 0; display: none;
-  align-items: center; justify-content: center;
-  background: rgba(0,0,0,.45); backdrop-filter: blur(2px);
-  color: #fff; font-weight: 600; z-index: 9999;
-  text-align: center; padding: 24px;
+/* Durumlar */
+.empty-state, .loading-state, .error-state {
+  background: var(--panel);
+  border: 1px dashed var(--panel-border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 1rem;
+  text-align: center;
+  opacity: .9;
 }
-.loading.show{ display: flex; }
-.loading-box{
-  max-width: 640px; width: 92%;
-  background: #0b1220cc; border:1px solid #334155;
-  border-radius: 16px; padding: 18px;
-}
-.loading-title{ font-size: 22px; margin-bottom: 6px }
-.loading-author{ color:#9ca3af; margin-bottom: 8px }
-.loading-quote{ font-weight: 500; margin-bottom: 12px; color:#e5e7eb }
-.loading-spin{ opacity:.9; animation: pulse 1s infinite ease-in-out }
-@keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
 
-/* TTS kontrolleri */
-.tts-controls{
-  display:flex; gap:8px; align-items:center;
-  margin: 6px 0 12px 0;
-}
-.tts-controls .btn{
-  background:#0b1220; border:1px solid #374151; color:var(--ink);
-  padding:6px 10px; border-radius:10px; cursor:pointer;
-}
-.tts-controls .btn:disabled{ opacity:.5; cursor:default }
-.tts-controls .opt{ color:var(--muted); font-size:13px; display:flex; gap:6px; align-items:center; margin-left:8px }
-
-/* Okunan ayeti vurgula */
-.ayah-card.reading{
-  outline: 2px solid #10b981;
-  box-shadow: 0 0 0 3px rgba(16,185,129,.15);
-}
+/* Küçük yardımcılar */
+.hidden { display: none !important; }
