@@ -2,10 +2,8 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
-  />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <title>Kuran'ın Gölgesinde — Meal</title>
 
   <!-- PWA -->
@@ -18,10 +16,6 @@
   <link rel="icon" href="/meal/icons/icon-192.png" sizes="192x192" />
   <link rel="apple-touch-icon" href="/meal/icons/icon-192.png" />
 
-  <!-- (İsteğe bağlı) çok sayıda göreli yol kullanıyorsan aç:
-  <base href="/meal/">
-  -->
-
   <!-- Performans ipuçları -->
   <link rel="preload" href="/meal/styles.css" as="style" />
   <link rel="preload" href="/meal/app.js" as="script" />
@@ -29,40 +23,64 @@
   <link rel="stylesheet" href="/meal/styles.css" />
 
   <style>
-    /* Basit yükleniyor ekranı ve hata alanı */
     :root { color-scheme: light dark; }
-    body { margin: 0; background:#111827; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    body {
+      margin: 0;
+      background: #111827;
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
     #splash {
-      display:flex; align-items:center; justify-content:center;
-      min-height: 100dvh; font-size: 1rem; opacity:.9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      font-size: 1rem;
+      opacity: 0.9;
     }
     #error {
-      position: fixed; inset: auto 1rem 1rem 1rem;
-      background:#ef4444; color:white; padding:.75rem 1rem; border-radius:.75rem;
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      position: fixed;
+      inset: auto 1rem 1rem 1rem;
+      background: #ef4444;
+      color: white;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      z-index: 1000;
     }
-    [hidden] { display:none !important; }
+    [hidden] { display: none !important; }
+    main#home {
+      min-height: 100dvh;
+      padding: 1rem;
+    }
   </style>
 </head>
 <body>
   <noscript>Bu uygulamayı kullanmak için JavaScript etkin olmalı.</noscript>
 
+  <!-- Ana kapsayıcı -->
   <div id="app">
+    <!-- İlk yükleme ekranı -->
     <div id="splash">Yükleniyor…</div>
+
+    <!-- Ana içerik -->
+    <main id="home" hidden>
+      <h1>Kuran'ın Gölgesinde</h1>
+      <p>Uygulama yüklendi. İçerik burada gösterilecek.</p>
+    </main>
   </div>
 
+  <!-- Hata kutusu -->
   <div id="error" hidden>Bir şeyler ters gitti. Lütfen sayfayı yenileyin.</div>
 
-  <!-- Hata yakalayıcı (isteğe bağlı ama faydalı) -->
+  <!-- Hata yakalayıcı -->
   <script>
     (function () {
       var errorBox = document.getElementById('error');
-
       window.addEventListener('error', function (ev) {
         if (errorBox) errorBox.hidden = false;
         console.error(ev.error || ev.message || ev);
       });
-
       window.addEventListener('unhandledrejection', function (ev) {
         if (errorBox) errorBox.hidden = false;
         console.error('Unhandled promise rejection:', ev.reason);
@@ -78,7 +96,6 @@
           navigator.serviceWorker
             .register('/meal/sw.js', { scope: '/meal/' })
             .catch(function (err) {
-              // SW kaydı başarısız olursa kullanıcıya bozulan bir şey göstermeyelim
               console.error('ServiceWorker register failed:', err);
             });
         });
@@ -86,7 +103,7 @@
     })();
   </script>
 
-  <!-- Uygulama kodun -->
+  <!-- Uygulama -->
   <script src="/meal/app.js" defer></script>
 </body>
 </html>
