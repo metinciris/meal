@@ -1,31 +1,3 @@
-// --- Güvenli DOM yardımcıları ---
-const $id = (id) => document.getElementById(id);
-const show = (idOrEl) => { const n = typeof idOrEl === 'string' ? $id(idOrEl) : idOrEl; if (n) n.hidden = false; };
-const hide = (idOrEl) => { const n = typeof idOrEl === 'string' ? $id(idOrEl) : idOrEl; if (n) n.hidden = true; };
-
-// Eksik elemanları konsola yaz (teşhis için)
-['app','splash','home','error'].forEach(k => { if (!$id(k)) console.warn('Eksik eleman:', k); });
-
-// Örnek: renderHome güvenli hâli
-function renderHome() {
-  hide('splash');   // document.getElementById('splash').hidden = true yerine
-  hide('error');
-  show('home');
-
-  // ... geri kalan DOM güncellemelerin ...
-}
-
-// Güvenli başlatma (defer varsa yine de sağlam)
-document.addEventListener('DOMContentLoaded', () => {
-  try {
-    renderHome();
-  } catch (e) {
-    console.error(e);
-    show('error');
-  }
-});
-
-
 /**************** app.js — canlı JSON API + TTS ****************/
 const API_URL = 'https://script.google.com/macros/s/AKfycbwxoqSvwWMYeZO2Oj4mNm8yZppFMrhPZl9K25NN89Q2zTGmuAU1ucoaitc0rM_FbzkU/exec';
 
