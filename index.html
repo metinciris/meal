@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b7285">
   <title>Kuran'ın Gölgesinde</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -75,5 +76,13 @@
       if (y) y.textContent = new Date().getFullYear();
     });
   </script>
+
+  if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/meal/sw.js', { scope: '/meal/' })
+      .catch(console.error);
+  });
+}
+
 </body>
 </html>
