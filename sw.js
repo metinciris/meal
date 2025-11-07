@@ -1,182 +1,99 @@
-/* sw.js — PWA for /meal/ (GitHub Pages)
-   - Precache: cache-first for statik varlıklar
-   - Runtime: navigate → network-first (offline fallback),
-              API (Apps Script) → network-first (cache fallback),
-              diğer same-origin GET → stale-while-revalidate
+/* sw.js — Safe baseline for /meal/
+   - Precache sadece aynı-origin statikler
+   - Navigasyon: network-first (+ offline fallback)
+   - Apps Script: network-only (SW dokunmaz)
 */
 
-const VERSION = 'v3';
+const VERSION = 'v4';
 const STATIC_CACHE = `meal-static-${VERSION}`;
-const RUNTIME_CACHE = 'meal-runtime';
 
-// GitHub Pages alt yolu için ABSOLUTE asset listesi
+// ABSOLUTE yollar (GitHub Pages /meal/ alt yolu için)
 const ASSETS = [
-  '/meal/', // önemli: navigate fallback için de kullanacağız
+  '/meal/',
   '/meal/index.html',
   '/meal/styles.css',
   '/meal/app.js',
   '/meal/manifest.webmanifest',
   '/meal/icons/icon-192.png',
   '/meal/icons/icon-512.png',
-  '/meal/icons/maskable-512.png'
+  '/meal/icons/maskable-512.png',
 ];
 
-// Yardımcılar
-const isGET = (req) => req.method === 'GET';
-const sameOrigin = (url) => url.origin === self.location.origin;
-const isAppScript = (url) => url.href.includes('/macros/s/');
-const isNavigation = (req) => req.mode === 'navigate' || (req.destination === '' && req.headers.get('accept')?.includes('text/html'));
-const toPath = (url) => url.pathname + url.search;
-
-// Precache
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    (async () => {
-      const cache = await caches.open(STATIC_CACHE);
-      // cache:'reload' ile taze kopya iste
-      await cache.addAll(ASSETS.map((u) => new Request(u, { cache: 'reload' })));
-    })()
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(STATIC_CACHE);
+    // Taze kopya için cache:'reload'
+    await cache.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })));
+  })());
   self.skipWaiting();
 });
 
-// Eski cache'leri temizle + navigation preload (varsa) aç
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(
-        keys
-          .filter((k) => k !== STATIC_CACHE && k !== RUNTIME_CACHE)
-          .map((k) => caches.delete(k))
-      );
-
-      if (self.registration.navigationPreload) {
-        try { await self.registration.navigationPreload.enable(); } catch (_) {}
-      }
-      await self.clients.claim();
-    })()
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys.filter(k => k !== STATIC_CACHE).map(k => caches.delete(k))
+    );
+    // (isteğe bağlı) navigation preload varsa aç
+    try { await self.registration.navigationPreload?.enable(); } catch {}
+    await self.clients.claim();
+  })());
 });
 
-// Genel fetch stratejileri
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-
-  // Sadece GET istekleri ele alınır
-  if (!isGET(req)) return;
+  if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
 
-  // 1) Apps Script API → network-first (cache fallback)
-  if (isAppScript(url)) {
-    event.respondWith(networkFirst(req, RUNTIME_CACHE));
+  // 0) Apps Script → network-only (proxyleme yok, aynen geç)
+  // URL içinde /macros/s/ varsa hiç dokunma:
+  if (url.href.includes('/macros/s/')) {
+    // SW müdahale etmesin diye respondWith kullanmıyoruz (doğrudan tarayıcı fetch'i)
     return;
   }
 
-  // 2) Navigasyon (sayfa geçişleri) → network-first, offline'da index.html
-  if (isNavigation(req) && sameOrigin(url)) {
-    event.respondWith(pageRequest(req));
+  // 1) Navigasyon (sayfa geçişi) → network-first + offline fallback
+  const isNavigation =
+    req.mode === 'navigate' ||
+    (req.destination === '' && req.headers.get('accept')?.includes('text/html'));
+
+  if (isNavigation && sameOrigin) {
+    event.respondWith((async () => {
+      // navigation preload varsa önce onu kullan
+      const preload = await event.preloadResponse;
+      if (preload) return preload;
+      try {
+        return await fetch(req);
+      } catch {
+        const cache = await caches.open(STATIC_CACHE);
+        const offline = await cache.match('/meal/index.html');
+        return offline || Response.error();
+      }
+    })());
     return;
   }
 
-  // 3) Statik önbelleğe alınan varlıklar → cache-first
-  if (sameOrigin(url) && isPrecached(url)) {
-    event.respondWith(cacheFirst(req, STATIC_CACHE));
-    return;
-  }
-
-  // 4) Same-origin diğer GET istekleri → stale-while-revalidate
-  if (sameOrigin(url)) {
-    event.respondWith(staleWhileRevalidate(req, RUNTIME_CACHE));
-    return;
-  }
-
-  // 5) Cross-origin (CDN vs.) → basit network-first (cache fallback yok)
-  event.respondWith(fetch(req).catch(() => caches.match(req)));
-});
-
-// ---- Strateji yardımcıları ----
-
-function isPrecached(url) {
-  // pathname bazlı karşılaştırma (query string'ler için de ana yolları yakala)
-  const path = url.pathname.endsWith('/') ? url.pathname : url.pathname;
-  return ASSETS.includes(path) || ASSETS.includes(path.replace(/\/+$/, '')) || ASSETS.includes(toPath(url));
-}
-
-async function cacheFirst(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request, { ignoreVary: true });
-  if (cached) return cached;
-  const res = await fetch(request);
-  if (res && res.ok) cache.put(request, res.clone());
-  return res;
-}
-
-async function networkFirst(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  try {
-    const res = await fetch(request);
-    if (res && (res.ok || res.type === 'opaqueredirect' || res.type === 'opaque')) {
-      cache.put(request, res.clone());
-    }
-    return res;
-  } catch (err) {
-    const cached = await cache.match(request, { ignoreVary: true });
-    if (cached) return cached;
-    throw err;
-  }
-}
-
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cachedPromise = cache.match(request, { ignoreVary: true });
-  const fetchPromise = fetch(request)
-    .then((res) => {
-      if (res && res.ok) cache.put(request, res.clone());
+  // 2) Aynı-origin statik varlıklar → cache-first
+  if (sameOrigin && isPrecachedPath(url)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(STATIC_CACHE);
+      const hit = await cache.match(req, { ignoreVary: true });
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res && res.ok) cache.put(req, res.clone());
       return res;
-    })
-    .catch(() => null);
-
-  const cached = await cachedPromise;
-  if (cached) return cached;
-
-  const fresh = await fetchPromise;
-  if (fresh) return fresh;
-
-  // Son çare: precache'de varsa dene
-  const precached = await caches.open(STATIC_CACHE).then((c) => c.match(request));
-  if (precached) return precached;
-
-  // Hiçbiri yoksa olduğu gibi hata fırlasın
-  return fetch(request);
-}
-
-async function pageRequest(request) {
-  // Navigation preload varsa önce onu kullan
-  const preload = await eventPreloadResponse();
-  if (preload) return preload;
-
-  try {
-    const res = await fetch(request);
-    return res;
-  } catch (err) {
-    // Offline → index.html fallback (SPA yönlendirmeleri için)
-    const cache = await caches.open(STATIC_CACHE);
-    const fallback = await cache.match('/meal/index.html');
-    if (fallback) return fallback;
-    throw err;
+    })());
+    return;
   }
-}
 
-// navigation preload yanıtını al
-async function eventPreloadResponse() {
-  // event.preloadResponse sadece fetch event'inde mevcut; closure ile erişemiyorsak null dön
-  try { return await self.registration.navigationPreload?.getState() ? await (self).preloadResponse : null; }
-  catch { return null; }
-}
-
-// İsteğe bağlı: hemen güncelle (skipWaiting) mesajını destekle
-self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+  // 3) Diğer her şey → tarayıcıya bırak (SW dokunmaz)
+  // event.respondWith(...) çağırmıyoruz ki normal ağ akışı işlensin.
 });
+
+// ASSETS listesinde olup olmadığını basitçe kontrol et
+function isPrecachedPath(url) {
+  const path = url.pathname + url.search;
+  return ASSETS.includes(url.pathname) || ASSETS.includes(path) || ASSETS.includes('/meal/');
+}
