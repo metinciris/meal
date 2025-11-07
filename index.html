@@ -2,108 +2,78 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-  <title>Kuran'ın Gölgesinde — Meal</title>
-
-  <!-- PWA -->
-  <link rel="manifest" href="/meal/manifest.webmanifest" type="application/manifest+json" />
-  <meta name="theme-color" content="#111827" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="#111827" />
-
-  <!-- Icons -->
-  <link rel="icon" href="/meal/icons/icon-192.png" sizes="192x192" />
-  <link rel="apple-touch-icon" href="/meal/icons/icon-192.png" />
-
-  <!-- Performans ipuçları -->
-  <link rel="preload" href="/meal/styles.css" as="style" />
-  <link rel="preload" href="/meal/app.js" as="script" />
-
-  <link rel="stylesheet" href="/meal/styles.css" />
-
-  <style>
-    :root { color-scheme: light dark; }
-    body {
-      margin: 0;
-      background: #111827;
-      color: #e5e7eb;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-    #splash {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100dvh;
-      font-size: 1rem;
-      opacity: 0.9;
-    }
-    #error {
-      position: fixed;
-      inset: auto 1rem 1rem 1rem;
-      background: #ef4444;
-      color: white;
-      padding: 0.75rem 1rem;
-      border-radius: 0.75rem;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-      z-index: 1000;
-    }
-    [hidden] { display: none !important; }
-    main#home {
-      min-height: 100dvh;
-      padding: 1rem;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kuran'ın Gölgesinde</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <noscript>Bu uygulamayı kullanmak için JavaScript etkin olmalı.</noscript>
+  <header class="site-header">
+    <div class="toprow">
+      <h1 class="site-title">Kuran'ın Gölgesinde</h1>
+      <div class="meta">
+        <button id="backBtn" class="ghost">⟵ Ana sayfa</button>
+      </div>
+    </div>
 
-  <!-- Ana kapsayıcı -->
-  <div id="app">
-    <!-- İlk yükleme ekranı -->
-    <div id="splash">Yükleniyor…</div>
+    <div id="crumbs" class="crumbs">Ana sayfa</div>
+  </header>
 
-    <!-- Ana içerik -->
-    <main id="home" hidden>
-      <h1>Kuran'ın Gölgesinde</h1>
-      <p>Uygulama yüklendi. İçerik burada gösterilecek.</p>
-    </main>
-  </div>
+  <main class="site-main">
+    <!-- ANA LİSTE -->
+    <section id="surahList" class="surah-list"></section>
 
-  <!-- Hata kutusu -->
-  <div id="error" hidden>Bir şeyler ters gitti. Lütfen sayfayı yenileyin.</div>
+    <!-- SÛRE GÖRÜNÜMÜ -->
+    <section id="surahView" class="surah-view" hidden style="display:none">
+      <h2 id="surahTitle" class="surah-title">—</h2>
 
-  <!-- Hata yakalayıcı -->
+      <!-- TTS kontrolleri (tek tuş) -->
+      <div class="tts-controls">
+        <button id="ttsToggle" class="btn-minimal" aria-pressed="false">▶︎ Oynat</button>
+        <label class="rate">
+          Hız
+          <input id="ttsRate" type="range" min="0.5" max="1.5" step="0.05" value="0.8" />
+        </label>
+      </div>
+
+      <div id="ayahList" class="ayah-list"></div>
+    </section>
+
+    <!-- Boş / Hata -->
+    <div id="empty-state" class="empty-state" hidden>Henüz veri bulunamadı.</div>
+    <div id="error-state" class="error-state" hidden>Bir hata oluştu. Lütfen tekrar deneyin.</div>
+
+    <!-- YÜKLENİYOR (eski tasarım) -->
+    <div id="loading-state" class="loading-state" hidden>
+      <div class="loading-box">
+        <div class="loading-title">Kuran'ın gölgesinde</div>
+        <div class="loading-author">Ayhan KIRMIZI</div>
+        <div class="loading-quote">Aklını kullanmayanların üzerine pislik yağar</div>
+        <div class="loading-spin">Yükleniyor…</div>
+      </div>
+    </div>
+
+    <!-- Ana sayfa alt bilgisi -->
+    <div id="home-last" class="home-last">
+      Son güncelleme: <strong id="homeLast">—</strong>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <small>© <span id="year"></span>  •  Ayhan KIRMIZI  •  "Aklını kullanmayanların üzerine pislik yağar"</small>
+  </footer>
+
+  <!-- Yüzen Durdur butonu -->
+  <button id="ttsFloatStop" class="float-stop" hidden title="Durdur">■</button>
+
+  <!-- Sayfa üstü yükleniyor örtüsü -->
+  <div id="loading" class="loading">Yükleniyor…</div>
+
+  <script src="./app.js"></script>
   <script>
-    (function () {
-      var errorBox = document.getElementById('error');
-      window.addEventListener('error', function (ev) {
-        if (errorBox) errorBox.hidden = false;
-        console.error(ev.error || ev.message || ev);
-      });
-      window.addEventListener('unhandledrejection', function (ev) {
-        if (errorBox) errorBox.hidden = false;
-        console.error('Unhandled promise rejection:', ev.reason);
-      });
-    })();
+    document.addEventListener('DOMContentLoaded', ()=> {
+      const y = document.getElementById('year');
+      if (y) y.textContent = new Date().getFullYear();
+    });
   </script>
-
-  <!-- Service Worker kaydı -->
-  <script>
-    (function () {
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker
-            .register('/meal/sw.js', { scope: '/meal/' })
-            .catch(function (err) {
-              console.error('ServiceWorker register failed:', err);
-            });
-        });
-      }
-    })();
-  </script>
-
-  <!-- Uygulama -->
-  <script src="/meal/app.js" defer></script>
 </body>
 </html>
